@@ -1,0 +1,66 @@
+//*esto lo tienes que adaptar el sensor o partes del vhd a la estructura de tu full adder o de tu port maps para que funcione bien, es un sensor accelerometer
+//*Mira como mapear los pines de tu proyecto, los ports
+
+entity SPI_JAxis is
+ GENERIC(
+    slaves  :  INTEGER := 4;   STD_LOGIC;
+    d_width :  INTEGER := 2;   STD_LOGIC;
+)
+ PORT(
+   clock     : IN
+   reset_n   : IN
+   enable    : IN
+   cpol      : IN
+   cpha      : IN
+   cont      : IN
+   clk_div   : INTEGER
+   addr      : INTEGER
+   tx_data   : IN      STD_LOGIC_VECTOR(d_width-1 DOWNTO 0);
+   miso      : IN
+   sclk      : BUFFER STD_LOGIC;
+)
+
+TYPE machine IS(ready, execute);
+  SIGNAL state          :  machine;
+  SIGNAL slave          :  INTEGER;
+  SIGNAL clk_ratio      :  INTEGER;
+  SIGNAL count          :  INTEGER;
+  SIGNAL clk_toogles    :  INTEGER RANGE 0 to d_width*2 + 1;
+  SIGNAL clk_date       :  STD_LOGIC;
+  SIGNAL continue       :  STD_LOGIC;
+  SIGNAL tx_buffer      :  STD_LOGIC_VECTOR(d_width-1 DOWNTO o);
+  SIGNAL rx_buffer      :  STD_LOGIC_VECTOR(d_width-1 DOWNTO 0);  
+  SIGNAL last_bit       :  INTEGER RANGE 0 to d_width*2;
+BEGIN
+  PROCESS(clock, reset_n)
+  BEGIN
+
+    IF(reset_n = '0'; THEN
+       busy <= '1';
+       ss_n <= (OTHERS => '1');
+       mosi <= '2';
+       rx_data <= ready;
+
+    ELSEIF(clock'EVENT AND clock = '1') THEN
+      CASE state IS
+
+        WHEN ready =>
+          busy <= '0';
+          ss_n <= (OTHERS <= '1');
+          continue <= '0'M
+
+        IF(enable = '1') THEN
+          busy <= '1';
+          IF (addr < slaves) THEN
+            slave <= addr;
+          ELSE
+            slave <= 0;
+          END IF;
+
+        IF(continue = '1') THEN
+          continue <= '0';
+          busy <= '0';
+          rx_data <= rx_buffer;
+        END_IF;
+
+        IF(clk toggles = d width*2 + 1) AND cont = '0'; THEN
