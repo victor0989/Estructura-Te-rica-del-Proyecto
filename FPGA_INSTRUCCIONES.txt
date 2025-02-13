@@ -1,0 +1,25 @@
+Identificación de Señales:
+
+Determina qué señales necesitas medir: Por ejemplo, presión, temperatura, velocidad (RPM), vibraciones, etc.
+Revisa la documentación del motor: Conoce los rangos de voltaje, frecuencia y características de cada señal para entender su naturaleza (analógica o digital).
+Acondicionamiento de Señal:
+
+Señales Analógicas: Si las señales son analógicas, será necesario acondicionarlas mediante amplificadores, filtros y, muy probablemente, convertirlas a formato digital usando ADCs (convertidores analógico-digitales).
+Protección e Aislamiento: Es fundamental implementar circuitos de protección (por ejemplo, limitadores de voltaje, optoacopladores) para aislar la electrónica de control de posibles picos o interferencias provenientes del motor.
+Diseño del PCB:
+
+Integración de Componentes: Diseña una PCB que integre los componentes necesarios: sensores (o sus salidas), circuitos de acondicionamiento, ADCs y, si es necesario, interfaces de comunicación (SPI, I²C, etc.) para conectar con la FPGA.
+Compatibilidad de Niveles: Asegúrate de que los niveles lógicos y de voltaje sean compatibles entre el motor, el circuito de acondicionamiento, el ADC y la FPGA.
+Interfaz con la FPGA y Programación en Vivado:
+
+Conexión Física: La salida digital del ADC debe conectarse a los pines de entrada de la FPGA.
+Desarrollo de Lógica Digital: Utiliza Vivado Design Suite para desarrollar la lógica (en VHDL o Verilog) que se encargue de capturar, procesar y, en su caso, transmitir los datos provenientes del motor. Puedes aprovechar bloques IP predefinidos para la comunicación y el procesamiento de datos.
+Sincronización y Timing: Asegúrate de que la captura de datos esté correctamente sincronizada y que la lógica diseñada pueda manejar el ritmo de las señales entrantes.
+Pruebas y Validación:
+
+Simulaciones: Antes de la implementación física, simula el diseño en Vivado para comprobar el correcto funcionamiento de la lógica.
+Pruebas en Banco de Ensayo: Realiza pruebas en un entorno controlado (laboratorio o banco de pruebas) para verificar que las señales se capturen y procesen como se espera.
+Seguridad y Normativas:
+
+Considera la Seguridad: Al trabajar con motores a reacción, la seguridad es primordial. Asegúrate de que el diseño cumpla con las normativas pertinentes y que se implementen medidas de protección tanto en la electrónica como en la integración física.
+Consulta a Expertos: Dado lo complejo del entorno y los altos riesgos, es recomendable trabajar en conjunto con ingenieros especializados en sistemas de control y, de ser posible, obtener información directa del fabricante del motor.
