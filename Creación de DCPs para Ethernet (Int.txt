@@ -1,0 +1,676 @@
+Creación de DCPs para Ethernet (Integración de IPs de Synplify Pro en Vivado)
+
+Paso 1: Crear un Proyecto RTL en Vivado para el Bloque “sinegen”
+
+Inicia Vivado IDE.
+
+Crear un nuevo proyecto:
+
+Haz clic en Create Project. Se abrirá el asistente para nuevos proyectos. Haz clic en Next.
+Configura el nombre del proyecto:
+
+Project Name: proj_synplify_netlist
+Haz clic en Next.
+Selecciona el tipo de proyecto:
+
+Escoge RTL Project (sin incluir simulación, a menos que se requiera) y haz clic en Next.
+Agregar fuentes:
+
+Haz clic en Add Files.
+Navega a la carpeta Vivado_Debug/src/lab4 y selecciona el archivo sinegen.vhd.
+Target Language: VHDL.
+Asegúrate de que esté seleccionada la opción Copy sources into project.
+Haz clic en Next.
+Agregar los archivos de los IPs (sub-módulos):
+
+Haz clic en Add Files nuevamente.
+Ubica y selecciona los archivos sine_high.xci, sine_low.xci y sine_mid.xci (ubicados en la misma carpeta).
+Haz clic en Next.
+Seleccionar la placa o parte:
+
+Bajo Default Parts, selecciona Boards y elige la Kintex-7 KC705 Evaluation Platform (o la que corresponda a tu hardware).
+Haz clic en Next.
+Resumen y finalización:
+
+Revisa que la información sea correcta en el New Project Summary y haz clic en Finish.
+Ajustar opciones de síntesis:
+
+En el panel Flow Navigator, bajo Project Manager, selecciona Settings.
+En el cuadro de diálogo, en el panel izquierdo, haz clic en Synthesis.
+En el panel derecho, en la opción -flatten_hierarchy, selecciona none.
+Haz clic en OK.
+Ejecutar la síntesis:
+
+En el Flow Navigator, dentro de la carpeta Synthesis, haz clic en Run Synthesis.
+Espera a que finalice el proceso. Cuando aparezca el diálogo Synthesis Completed, selecciona Open Synthesized Design y haz clic en OK.
+Salir de Vivado:
+
+Ve a File > Exit y confirma al salir.
+
+******************************************************************************************************************************************************
+
+PROCESO/NO COPIAR/LIENZO/NO COPIAR
+Archivo de Constraints para la Placa ZCU106
+
+Si deseas utilizar la placa ZCU106, a continuación se muestra un ejemplo de archivo de constraints que puedes adaptar y guardar (por ejemplo, como ZCU106.xdc) y otros componentes de manera que es un lienzo de componentes:
+
+sinegen_demo.vhd
+
+attribute mark_debug : string;
+attribute mark_debug of GPIO_BUTTONS_db : signal is "true";
+attribute mark_debug of GPIO_BUTTONS_dly : signal is "true";
+attribute mark_debug of GPIO_BUTTONS_re : signal is "true";
+attribute mark_debug of DONT_EAT : signal is "true";
+
+
+component sinegen
+  port
+  (
+   clk     : in   std_logic;
+   reset   : in   std_logic;
+   sel     : in   std_logic_vector(1 downto 0);
+   sine    : out  std_logic_vector(19 donto 0)
+  );
+
+-- ILA
+U_ILA : ila_0
+  port map
+  (
+   CLK => clk,
+   PROBE0 => sineSel,
+   PROBE1 => sine,
+   PROBE2 => GPIO_BUTTONS_db,
+   PROBE3 => GPIO_BUTTONS_re,
+   PROBE4 => GPIO_BUTTONS_dly,
+   PROBE5 => GPIO_BUTTONS
+  ); Esta es la estructura: projecto:  module ethernet_fsm (
+    input wire clk,           // Reloj de sistema
+    input wire reset,         // Reset de sistema
+    input wire sw,            // Señal de entrada de control
+    output reg db,            // Señal de salida
+    output reg [2:0] eth_state // Estado del FSM
+);
+
+// Declaración de estados simbólicos
+localparam [2:0] 
+    zero = 3'b000,
+    wait1_1 = 3'b001,
+    wait1_2 = 3'b010,
+    wait1_3 = 3'b011,
+    one = 3'b100,
+    wait0_1 = 3'b101,
+    wait0_2 = 3'b110,
+    wait0_3 = 3'b111;
+
+// Declaración de señales
+reg [18:0] q_reg; // Contador de 19 bits
+wire [18:0] q_next;
+wire m_tick;
+reg [2:0] state_reg, state_next;
+
+// Contador para generar tick de 10 ms
+always @(posedge clk) begin
+    q_reg <= q_next;
+end
+
+// Lógica del siguiente estado del contador
+assign q_next = q_reg + 1;
+
+// Salida del tick
+assign m_tick = (q_reg == 0) ? 1'b1 : 1'b0;
+
+// Registro de estado
+always @(posedge clk or posedge reset) begin
+    if (reset)
+        state_reg <= zero;
+    else
+        state_reg <= state_next;
+end
+
+// Lógica del siguiente estado y lógica de salida
+always @* begin
+    state_next = state_reg; // Estado por defecto: el mismo
+    db = 1'b0; // Salida por defecto: 0
+    case (state_reg)
+        zero: begin
+            if (sw) state_next = wait1_1;
+        end
+        wait1_1: begin
+            if (~sw) state_next = zero;
+            else if (m_tick) state_next = wait1_2;
+        end
+        wait1_2: begin
+            if (~sw) state_next = zero;
+            else if (m_tick) state_next = wait1_3;
+        end
+        wait1_3: begin
+            if (~sw) state_next = zero;
+            else if (m_tick) state_next = one;
+        end
+        one: begin
+            db = 1'b1;
+            if (~sw) state_next = wait0_1;
+        end
+        wait0_1: begin
+            db = 1'b1;
+            if (sw) state_next = one;
+            else if (m_tick) state_next = wait0_2;
+        end
+        wait0_2: begin
+            db = 1'b1;
+            if (sw) state_next = one;
+            else if (m_tick) state_next = wait0_3;
+        end
+        wait0_3: begin
+            db = 1'b1;
+            if (sw) state_next = one;
+            else if (m_tick) state_next = zero;
+        end
+        default: state_next = zero;
+    endcase
+end
+
+// Asignación del estado actual
+always @(posedge clk) begin
+    eth_state <= state_reg;
+end
+
+endmodule // aqui el constraints:  ## Configuración del reloj de sistema
+set_property -dict { PACKAGE_PIN W22 IOSTANDARD LVCMOS33 } [get_ports { clk }];
+create_clock -name sysclk -period 10 -waveform {0 5} [get_ports { clk }];
+
+## HDMI Connections
+set_property -dict { PACKAGE_PIN AN6 IOSTANDARD LVDS } [get_ports { HDMI_TX0_P }];
+set_property -dict { PACKAGE_PIN AN5 IOSTANDARD LVDS } [get_ports { HDMI_TX0_N }];
+set_property -dict { PACKAGE_PIN AM4 IOSTANDARD LVDS } [get_ports { HDMI_TX1_P }];
+set_property -dict { PACKAGE_PIN AM3 IOSTANDARD LVDS } [get_ports { HDMI_TX1_N }];
+set_property -dict { PACKAGE_PIN AL6 IOSTANDARD LVDS } [get_ports { HDMI_TX2_P }];
+set_property -dict { PACKAGE_PIN AL5 IOSTANDARD LVDS } [get_ports { HDMI_TX2_N }];
+set_property -dict { PACKAGE_PIN G21 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_LVDS_OUT_P }];
+set_property -dict { PACKAGE_PIN F21 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_LVDS_OUT_N }];
+set_property -dict { PACKAGE_PIN N8 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_SRC_SCL }];
+set_property -dict { PACKAGE_PIN N9 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_SRC_SDA }];
+set_property -dict { PACKAGE_PIN N11 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_EN }];
+set_property -dict { PACKAGE_PIN M12 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_CEC }];
+set_property -dict { PACKAGE_PIN N13 IOSTANDARD LVCMOS33 } [get_ports { HDMI_TX_HPD }];
+
+## HDMI Additional Connections
+set_property -dict { PACKAGE_PIN G8 IOSTANDARD LVCMOS33 } [get_ports { HDMI_SI5324_LOL }];
+set_property -dict { PACKAGE_PIN H8 IOSTANDARD LVCMOS33 } [get_ports { HDMI_SI5324_RST }];
+set_property -dict { PACKAGE_PIN G14 IOSTANDARD LVDS } [get_ports { HDMI_REC_CLOCK_C_P }];
+set_property -dict { PACKAGE_PIN F13 IOSTANDARD LVDS } [get_ports { HDMI_REC_CLOCK_C_N }];
+set_property -dict { PACKAGE_PIN AD8 IOSTANDARD LVDS } [get_ports { HDMI_SI5324_OUT_C_P }];
+set_property -dict { PACKAGE_PIN AD7 IOSTANDARD LVDS } [get_ports { HDMI_SI5324_OUT_C_N }];
+
+## HDMI Input (Rx)
+set_property -dict { PACKAGE_PIN AP4 IOSTANDARD LVDS } [get_ports { HDMI_RX0_C_P }];
+set_property -dict { PACKAGE_PIN AP3 IOSTANDARD LVDS } [get_ports { HDMI_RX0_C_N }];
+set_property -dict { PACKAGE_PIN AN2 IOSTANDARD LVDS } [get_ports { HDMI_RX1_C_P }];
+set_property -dict { PACKAGE_PIN AN1 IOSTANDARD LVDS } [get_ports { HDMI_RX1_C_N }];
+set_property -dict { PACKAGE_PIN AL2 IOSTANDARD LVDS } [get_ports { HDMI_RX2_C_P }];
+set_property -dict { PACKAGE_PIN AL1 IOSTANDARD LVDS } [get_ports { HDMI_RX2_C_N }];
+set_property -dict { PACKAGE_PIN AC10 IOSTANDARD LVDS } [get_ports { HDMI_RX_CLK_C_P }];
+set_property -dict { PACKAGE_PIN AC9 IOSTANDARD LVDS } [get_ports { HDMI_RX_CLK_C_N }];
+set_property -dict { PACKAGE_PIN M8 IOSTANDARD LVCMOS33 } [get_ports { HDMI_RX_PWR_DET }];
+set_property -dict { PACKAGE_PIN M10 IOSTANDARD LVCMOS33 } [get_ports { HDMI_RX_HPD }];
+set_property -dict { PACKAGE_PIN N12 IOSTANDARD LVCMOS33 } [get_ports { HDMI_CTL_SCL }];
+set_property -dict { PACKAGE_PIN P12 IOSTANDARD LVCMOS33 } [get_ports { HDMI_CTL_SDA }];
+set_property -dict { PACKAGE_PIN M9 IOSTANDARD LVCMOS33 } [get_ports { HDMI_RX_SNK_SCL }];
+set_property -dict { PACKAGE_PIN M11 IOSTANDARD LVCMOS33 } [get_ports { HDMI_RX_SNK_SDA }];
+
+## Conexiones SFP0 y SFP1
+set_property PACKAGE_PIN Y4 [get_ports { SFP0_TX_P }];
+set_property PACKAGE_PIN Y3 [get_ports { SFP0_TX_N }];
+set_property PACKAGE_PIN AA2 [get_ports { SFP0_RX_P }];
+set_property PACKAGE_PIN AA1 [get_ports { SFP0_RX_N }];
+set_property -dict { PACKAGE_PIN AE22 IOSTANDARD LVCMOS12 } [get_ports { SFP0_TX_DISABLE_B }];
+
+set_property PACKAGE_PIN W6 [get_ports { SFP1_TX_P }];
+set_property PACKAGE_PIN W5 [get_ports { SFP1_TX_N }];
+set_property PACKAGE_PIN W2 [get_ports { SFP1_RX_P }];
+set_property PACKAGE_PIN W1 [get_ports { SFP1_RX_N }];
+set_property -dict { PACKAGE_PIN AF20 IOSTANDARD LVCMOS12 } [get_ports { SFP1_TX_DISABLE_B }];
+
+## Pines de los LEDs Ethernet
+set_property -dict { PACKAGE_PIN AL11 IOSTANDARD LVCMOS12 } [get_ports { LED_0 }];
+set_property -dict { PACKAGE_PIN AL13 IOSTANDARD LVCMOS12 } [get_ports { LED_1 }];
+set_property -dict { PACKAGE_PIN AK13 IOSTANDARD LVCMOS12 } [get_ports { LED_2 }];
+
+## Pines para Switches
+set_property -dict { PACKAGE_PIN J38 IOSTANDARD LVCMOS33 } [get_ports { arm_trace_power }];
+set_property -dict { PACKAGE_PIN J153 IOSTANDARD LVCMOS33 } [get_ports { power_inhibit }];
+
+## Pines para el DIP Switch PS_MODE select (SW6)
+set_property -dict { PACKAGE_PIN P7 IOSTANDARD LVCMOS33 } [get_ports { ps_mode[0] }];
+set_property -dict { PACKAGE_PIN R7 IOSTANDARD LVCMOS33 } [get_ports { ps_mode[1] }];
+set_property -dict { PACKAGE_PIN R8 IOSTANDARD LVCMOS33 } [get_ports { ps_mode[2] }];
+set_property -dict { PACKAGE_PIN T8 IOSTANDARD LVCMOS33 } [get_ports { ps_mode[3] }];
+
+## Pines para el DIP Switch MSP430 GPIO (SW8)
+set_property -dict { PACKAGE_PIN U8 IOSTANDARD LVCMOS33 } [get_ports { gpio[0] }];
+
+## Conexiones de Ethernet
+set_property -dict { PACKAGE_PIN J31 IOSTANDARD LVCMOS18 } [get_ports { MIO64_ENET_TX_CLK }];
+set_property -dict { PACKAGE_PIN J32 IOSTANDARD LVCMOS18 } [get_ports { MIO65_ENET_TX_D0 }];
+set_property -dict { PACKAGE_PIN J34 IOSTANDARD LVCMOS18 } [get_ports { MIO66_ENET_TX_D1 }];
+set_property -dict { PACKAGE_PIN K28 IOSTANDARD LVCMOS18 } [get_ports { MIO67_ENET_TX_D2 }];
+set_property -dict { PACKAGE_PIN K29 IOSTANDARD LVCMOS18 } [get_ports { MIO68_ENET_TX_D3 }];
+set_property -dict { PACKAGE_PIN K30 IOSTANDARD LVCMOS18 } [get_ports { MIO69_ENET_TX_CTRL }];
+set_property -dict { PACKAGE_PIN K31 IOSTANDARD LVCMOS18 } [get_ports { MIO70_ENET_RX_CLK }];
+set_property -dict { PACKAGE_PIN K32 IOSTANDARD LVCMOS18 } [get_ports { MIO71_ENET_RX_D0 }];
+set_property -dict { PACKAGE_PIN K33 IOSTANDARD LVCMOS18 } [get_ports { MIO72_ENET_RX_D1 }];
+set_property -dict { PACKAGE_PIN K34 IOSTANDARD LVCMOS18 } [get_ports { MIO73_ENET_RX_D2 }];
+set_property -dict { PACKAGE_PIN L29 IOSTANDARD LVCMOS18 } [get_ports { MIO74_ENET_RX_D3 }];
+set_property -dict { PACKAGE_PIN L30 IOSTANDARD LVCMOS18 } [get_ports { MIO75_ENET_RX_CTRL }];
+set_property -dict { PACKAGE_PIN L33 IOSTANDARD LVCMOS18 } [get_ports { MIO76_ENET_MDC }]; aqui otro modulo: module ethernet_fsm (
+    input wire clk,           // Reloj de sistema
+    input wire reset,         // Reset de sistema
+    input wire sw,            // Señal de entrada de control
+    output reg db,            // Señal de salida
+    output reg [2:0] eth_state // Estado del FSM
+);
+
+// Declaración de estados simbólicos
+localparam [2:0] 
+    zero = 3'b000,
+    wait1_1 = 3'b001,
+    wait1_2 = 3'b010,
+    wait1_3 = 3'b011,
+    one = 3'b100,
+    wait0_1 = 3'b101,
+    wait0_2 = 3'b110,
+    wait0_3 = 3'b111;
+
+// Declaración de señales
+reg [18:0] q_reg; // Contador de 19 bits
+wire [18:0] q_next;
+wire m_tick;
+reg [2:0] state_reg, state_next;
+
+// Contador para generar tick de 10 ms
+always @(posedge clk) begin
+    q_reg <= q_next;
+end
+
+// Lógica del siguiente estado del contador
+assign q_next = q_reg + 1;
+
+// Salida del tick
+assign m_tick = (q_reg == 0) ? 1'b1 : 1'b0;
+
+// Registro de estado
+always @(posedge clk or posedge reset) begin
+    if (reset)
+        state_reg <= zero;
+    else
+        state_reg <= state_next;
+end
+
+// Lógica del siguiente estado y lógica de salida
+always @* begin
+    state_next = state_reg; // Estado por defecto: el mismo
+    db = 1'b0; // Salida por defecto: 0
+    case (state_reg)
+        zero: begin
+            if (sw) state_next = wait1_1;
+        end
+        wait1_1: begin
+            if (~sw) state_next = zero;
+            else if (m_tick) state_next = wait1_2;
+        end
+        wait1_2: begin
+            if (~sw) state_next = zero;
+            else if (m_tick) state_next = wait1_3;
+        end
+        wait1_3: begin
+            if (~sw) state_next = zero;
+            else if (m_tick) state_next = one;
+        end
+        one: begin
+            db = 1'b1;
+            if (~sw) state_next = wait0_1;
+        end
+        wait0_1: begin
+            db = 1'b1;
+            if (sw) state_next = one;
+            else if (m_tick) state_next = wait0_2;
+        end
+        wait0_2: begin
+            db = 1'b1;
+            if (sw) state_next = one;
+            else if (m_tick) state_next = wait0_3;
+        end
+        wait0_3: begin
+            db = 1'b1;
+            if (sw) state_next = one;
+            else if (m_tick) state_next = zero;
+        end
+        default: state_next = zero;
+    endcase
+end
+
+// Asignación del estado actual
+always @(posedge clk) begin
+    eth_state <= state_reg;
+end
+
+endmodule // el modulo sinegen: verilog prototyping by examples: Listing 6.1 Debouncing circuit with an explicit data path component 
+module debounce-explicit 
+( 
+input wire clk, reset, 
+input wire sw, 
+output reg db-level , db-tick 
+1; 
+// symbolic state declaration 
+localparam [I : 01 
+IO 
+I5 
+20 
+zero = 2'b00, 
+wait0 = 2'b01, 
+one 
+= 2'b10, 
+wait1 = 2'bll; 
+// number of counter bits (2-N * 20ns = 40ms) 
+localparam N=21; 
+// signal declaration 
+reg [I: 01 state-reg , state-next ; 
+reg CN-1:Ol q-reg; 
+wire [N-1: 01 q-next ; 
+wire q-zero; 
+reg q-load, q-dec; 
+// fsmd state & data registers 
+always Q (posedge clk , posedge reset) 
+if (reset) 
+begin 
+state-reg <= zero; 
+q-reg <= 0; 
+end 
+e 1 s e 
+begin 
+state-reg <= state-next ; 
+q-reg <= q-next; 
+end 
+40 
+45 
+// FSMD data path (counter) next-state logic 
+assign q-next = (q-load) ? (N(l'b1)) : 
+(q-dec) ? q-reg - 1 : 
+q-reg; 
+// status signal 
+assign q-zero = (q-next ==O) ; 
+// load 1. .1 
+// decrement 
+// FSMD control path next-state logic 
+always Q* 
+begin 
+state-next = state-reg; // default state: the same 
+q-load = l'bO; 
+q-dec = 1 'bO; 
+db-tick = l'bO; 
+// default output: 0 
+// default output: 0 
+// default output: 0 
+case (state-reg) 
+zero : 
+begin 
+db-level = l'bO; 
+if (SW) 
+begin 
+state-next = waitl; 
+q-load = l 'bl; 
+end 
+end 
+waitl : 
+begin 
+db-level = l'bO; 
+if (sw) 
+begin 
+q-dec = l 'bl; 
+if (q-zero) 
+begin 
+state-next = one; 
+db-tick = l 'bl; 
+end 
+end 
+else // sw==O 
+state-next = zero; 
+end 
+one : 
+begin 
+db-level = l 'bl; 
+if (-sw) 
+begin 
+state-next = wait0; 
+q-load = l 'bl; 
+end 
+end 
+wait0 : 
+begin 
+db-level = 1 'bl; 
+if (-sw) 
+begin 
+q-dec = 1 'bl; 
+if (q-zero) 
+state-next = zero; 
+end 
+else // sw==I 
+state-next = one; 
+end 
+default : state-next = zero; 
+endcase 
+end 
+endmodule 
+6.2.3 Code with implicit data path components 
+An alternative coding style is to embed the RT operations within the FSM control path. 
+Instead of explicitly defining the data path components, we just list RT operations with the 
+corresponding FSM state. The code of the debouncing circuit is shown in Listing 6.2. 
+Listing 6.2 Debouncing circuit with an implicit data path component 
+module debounce 
+( 
+input wire clk, reset, 
+input wire sw, 
+s 
+10 
+15 
+output reg db-level , db-tick 
+1; 
+// symbolic state declaration 
+localparam [I : 01 
+zero = 2'b00, 
+wait0 = 2'b01, 
+one 
+= 2'b10, 
+wait1 = 2'bll; 
+// number of counter bits (2-N * 2Ons = 40ms) 
+localparam N=21; 
+// signal declaration 
+reg [N-1:0] q-reg, q-next; 
+lo 
+5 
+35 
+reg [I : 01 state-reg , state-next ; 
+// body 
+// fsmd state & data registers 
+always @(posedge clk, posedge reset) 
+if (reset) 
+begin 
+state-reg <= zero; 
+q-reg <= 0; 
+end 
+else 
+begin 
+state-reg <= state-next; 
+q-reg <= q-next; 
+end 
+// next-state logic & data path functional units /routing 
+always @* 
+begin 
+state-next = state-reg; 
+q-next = q-reg; 
+db-tick = l'bO; 
+// default state: the same 
+// default q: unchnaged 
+// default output: 0 
+case (state-reg) 
+zero : 
+begin 
+db-level = l'bO; 
+if (SW) 
+begin 
+state-next = waitl; 
+q-next = CN.El'bl}); // load I . . ] 
+end 
+end 
+wait 1 : 
+begin 
+db-level = l'bO; 
+if (SW) 
+begin 
+q-next = q-reg - 1; 
+if (q-next==O) 
+begin 
+state-next = one; 
+db-tick = l 'bl; 
+end 
+end 
+else // sw==O 
+state-next = zero; 
+end 
+one : 
+begin 
+db-level = l 'bl; 
+if (-SW) 
+begin 
+state-next = wait0; 
+q-next = {N{l'bl)); 
+end 
+end 
+wait0 : 
+begin 
+db-level = l 'bl; 
+if ("sw) 
+// load I.. I 
+begin 
+q-next = q-reg 
+if (q-next ==O) 
+state-next = zero; 
+end 
+else // sw==l 
+state-next = one; 
+90 
+end 
+default : state-next = zero; 
+endcase 
+end 
+endmodule 
+
+*****************************************************************************************************************************************************
+
+The code consists of a memory segment and a combinational logic segment. The former 
+contains the state register of the FSM and the data register of the data path. The latter 
+basically specifies the next-state logic of the control path FSM. Instead of generating control 
+signals, the next data register values are specified in individual states. The next-state 
+logic of the data path, which consists of functional units and a routing network, is created 
+accordingly.  
+
+`timescale 1ns / 1ps
+module sinegen(
+    input             clk,    // Reloj del sistema
+    input             reset,  // Reset asíncrono
+    input      [1:0]  sel,    // Selector de frecuencia
+    output reg signed [19:0] sine  // Salida de la onda sinusoidal (20 bits, con signo)
+);
+
+    // Acumulador de fase (16 bits)
+    reg [15:0] phase;
+    // Incremento de fase (determina la frecuencia de la salida)
+    reg [15:0] phase_inc;
+
+    // Selección del incremento de fase según la señal 'sel'
+    // (Valores arbitrarios; ajústalos según la frecuencia deseada)
+    always @(*) begin
+        case(sel)
+            2'b00: phase_inc = 16'd100;  // Frecuencia baja
+            2'b01: phase_inc = 16'd200;
+            2'b10: phase_inc = 16'd400;
+            2'b11: phase_inc = 16'd800;  // Frecuencia alta
+            default: phase_inc = 16'd100;
+        endcase
+    end
+
+    // Acumulador de fase: se incrementa en cada flanco de subida
+    always @(posedge clk or posedge reset) begin
+        if (reset)
+            phase <= 16'd0;
+        else
+            phase <= phase + phase_inc;
+    end
+
+    // Generación de la onda sinusoidal utilizando una tabla de búsqueda (LUT)
+    // Se toman los 4 bits más significativos del acumulador (16 muestras por ciclo)
+    always @(*) begin
+        case(phase[15:12])
+            4'd0:  sine = 20'sd0;
+            4'd1:  sine = 20'sd200000;
+            4'd2:  sine = 20'sd370000;
+            4'd3:  sine = 20'sd484000;
+            4'd4:  sine = 20'sd524287;  // Valor máximo (aprox. 2^19 - 1)
+            4'd5:  sine = 20'sd484000;
+            4'd6:  sine = 20'sd370000;
+            4'd7:  sine = 20'sd200000;
+            4'd8:  sine = 20'sd0;
+            4'd9:  sine = -20'sd200000;
+            4'd10: sine = -20'sd370000;
+            4'd11: sine = -20'sd484000;
+            4'd12: sine = -20'sd524287;
+            4'd13: sine = -20'sd484000;
+            4'd14: sine = -20'sd370000;
+            4'd15: sine = -20'sd200000;
+            default: sine = 20'sd0;
+        endcase
+    end
+
+endmodule
+
+**********************************************************************************************************************************************************
+
+## sinegen_demo
+
+`timescale 1ns / 1ps
+// Agregamos atributos para que las herramientas de síntesis marquen estas señales para debug.
+(* mark_debug = "true" *) wire GPIO_BUTTONS_db;
+(* mark_debug = "true" *) wire GPIO_BUTTONS_dly;
+(* mark_debug = "true" *) wire GPIO_BUTTONS_re;
+
+module sinegen_demo(
+    input             clk,       // Reloj del sistema (asegúrate de que en el XDC esté correctamente asignado para la ZCU106)
+    input             reset,     // Reset
+    input      [1:0]  sineSel,   // Selector para la frecuencia del generador de senos
+    input      [3:0]  GPIO_BUTTONS, // Ejemplo de botones para depuración
+    output signed [19:0] sine   // Salida de la onda sinusoidal
+);
+
+    // Instanciación del generador de senos
+    sinegen u_sinegen (
+        .clk(clk),
+        .reset(reset),
+        .sel(sineSel),
+        .sine(sine)
+    );
+
+    // Instanciación de un ILA para depuración (la IP ILA debe haber sido generada en Vivado)
+    ila_0 u_ila (
+        .CLK    (clk),
+        .PROBE0 (sineSel),
+        .PROBE1 (sine),
+        .PROBE2 (GPIO_BUTTONS_db),
+        .PROBE3 (GPIO_BUTTONS_re),
+        .PROBE4 (GPIO_BUTTONS_dly),
+        .PROBE5 (GPIO_BUTTONS)
+    );
+
+endmodule
+
+***********************************************************************************************************************************************
+

@@ -1,0 +1,72 @@
+## ZCU106 FPGA
+## Configuración del reloj de sistema
+set_property -dict { PACKAGE_PIN W22 IOSTANDARD LVCMOS33 } [get_ports { clk }];
+
+## Pines LED Ethernet
+set_property -dict { PACKAGE_PIN AG15 IOSTANDARD LVCMOS33 } [get_ports { LED_2 }]; # Pin 61 - LED_2 - actividad RX/TX
+set_property -dict { PACKAGE_PIN AH17 IOSTANDARD LVCMOS33 } [get_ports { LED_1 }]; # Pin 62 - LED_1 - 100BASE-T link
+set_property -dict { PACKAGE_PIN AH16 IOSTANDARD LVCMOS33 } [get_ports { LED_0 }]; # Pin 63 - LED_0 - link establecido
+
+## Pines adicionales para switches (ejemplo)
+set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports { swt[0] }];
+set_property -dict { PACKAGE_PIN L16 IOSTANDARD LVCMOS33 } [get_ports { swt[1] }];
+set_property -dict { PACKAGE_PIN M13 IOSTANDARD LVCMOS33 } [get_ports { swt[2] }];
+set_property -dict { PACKAGE_PIN R15 IOSTANDARD LVCMOS33 } [get_ports { swt[3] }];
+set_property -dict { PACKAGE_PIN R17 IOSTANDARD LVCMOS33 } [get_ports { swt[4] }];
+set_property -dict { PACKAGE_PIN T18 IOSTANDARD LVCMOS33 } [get_ports { swt[5] }];
+set_property -dict { PACKAGE_PIN U18 IOSTANDARD LVCMOS33 } [get_ports { swt[6] }];
+set_property -dict { PACKAGE_PIN R13 IOSTANDARD LVCMOS33 } [get_ports { swt[7] }];
+
+************************************************************************************************************************************************
+
+##  Kintex-7 FPGA KC705 Evaluation Kit Base Board
+
+## Reloj clock AD11 y AD12
+set_property -dict { PACKAGE_PIN AD11 IOSTANDARD LVCMOS33 } [get_ports { CLK_N }];
+set_property -dict { PACKAGE_PIN AD12 IOSTANDARD LVCMOS33 } [get_ports { CLK_P }];
+
+## GPIO_BUTTONS[0][1]
+set_property -dict { PACKAGE_PIN AA12 IOSTANDARD LVCMOS33 } [get_ports { GPIO_BUTTONS[0]}];
+set_property -dict { PACKAGE_PIN AG5 IOSTANDARD LVCMOS33 } [get_ports { GPIO_BUTTONS[1]}];
+
+## GPIO_SWITCH
+set_property -dict { PACKAGE_PIN Y28 IOSTANDARD LVCMOS33 } [get_ports { GPIO_SWITCH}];
+
+# LEDS_n
+set_property -dict { PACKAGE_PIN AB8 IOSTANDARD LVCMOS33 } [get_ports { LEDS_n[0]}];
+set_property -dict { PACKAGE_PIN AA8 IOSTANDARD LVCMOS33 } [get_ports { LEDS_n[1]}];
+set_property -dict { PACKAGE_PIN AC9 IOSTANDARD LVCMOS33 } [get_ports { LEDS_n[2]}];
+set_property -dict { PACKAGE_PIN AB9 IOSTANDARD LVCMOS33 } [get_ports { LEDS_n[3]}];
+
+## module sinegen_demo.vhd
+
+attribute mark_debug : string;
+attribute mark_debug of GPIO_BUTTONS_db : signal is "true";
+attribute mark_debug of GPIO_BUTTONS_dly : signal is "true";
+attribute mark_debug of GPIO_BUTTONS_re : signal is "true";
+attribute mark_debug of DONT_EAT : signal is "true";
+
+
+component sinegen
+  port
+  (
+   clk     : in   std_logic;
+   reset   : in   std_logic;
+   sel     : in   std_logic_vector(1 downto 0);
+   sine    : out  std_logic_vector(19 donto 0)
+  );
+
+-- ILA
+U_ILA : ila_0
+  port map
+  (
+   CLK => clk,
+   PROBE0 => sineSel,
+   PROBE1 => sine,
+   PROBE2 => GPIO_BUTTONS_db,
+   PROBE3 => GPIO_BUTTONS_re,
+   PROBE4 => GPIO_BUTTONS_dly,
+   PROBE5 => GPIO_BUTTONS
+  );
+
+Figure 18: Hook Signals that Require Debugging in the ILA
