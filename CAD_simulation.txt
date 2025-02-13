@@ -1,0 +1,8 @@
+The CAD chosen for this simulation contains the following:
+The Shell, which is the external structure that contains the mechanical parts of the engine. It has a a cylinder shape, but ends in a funnel-like way, the Nozzle, which is the way out for the exhaust gases.
+
+The Fan, which is used to bypass a large amount of air in the inside of the engine.
+
+The Turbine, which typically is a series of airfoil shaped blades, extracting energy from the hot, high-speed air, 
+and rotating the Turbine and the engine shaft that it’s connected to. 
+In this case, the Turbine contains only one of the two typical stages, the rotor, a stage of blades attached to the shaft, rotating with the same velocity.
