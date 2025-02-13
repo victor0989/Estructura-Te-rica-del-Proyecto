@@ -4,83 +4,110 @@
 - Sincronización y gestión de tiempos críticos.
 - Integración con subsistemas mecánicos mediante protocolos (SPI, I²C, etc.).
 
----
+## Diagrama del Proyecto
+```
+       ┌────────────────────────────────────────────┐
+       │  Proyecto de Motor Híbrido Integrado       │
+       │  (Control Digital, Diseño Mecánico y       │
+       │   Propulsión Cuántica/Avanzada)              │
+       └────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────┐      ┌─────────────────────────────┐
+│       1. Control Digital    │      │    2. Diseño Mecánico       │
+│  (FPGA y Lógica con Vivado)  │      │   (Modelado 3D, PCB, CFD)     │
+│                             │      │                             │
+│ - FPGA XCU106 UltraScale    │      │ - Turbina: Rotor & Estator  │
+│ - Vivado IP Integrator      │      │ - Carcasa y Estructura      │
+│ - ADC/DAC y Sensores        │      │ - SimScale / FreeCAD/Onshape  │
+└─────────────────────────────┘      └─────────────────────────────┘
+                           │                      │
+                           └────────────┬─────────┘
+                                        ▼
+                           ┌─────────────────────────────┐
+                           │  3. Teoría Avanzada y        │
+                           │  Propulsión Cuántica         │
+                           │  (Campos Magnéticos,         │
+                           │   Radiación Cósmica,         │
+                           │   Agujeros Negros, etc.)     │
+                           │                             │
+                           │ - Modelado en MATLAB/COMSOL │
+                           │ - Ecuaciones de campo       │
+                           │ - Parámetros cuánticos y    │
+                           │   relativistas              │
+                           └─────────────────────────────┘
+                                        │
+                                        ▼
+                           ┌─────────────────────────────┐
+                           │  4. Integración y Sinergia   │
+                           │  del Sistema                 │
+                           │                             │
+                           │ - Comunicación entre        │
+                           │   subsistemas (digital y      │
+                           │   mecánico)                  │
+                           │ - Prototipado y Validación   │
+                           │ - Optimización Integral      │
+                           └─────────────────────────────┘
+```
 
-## 1. Estructura Teórica del Proyecto
-
-### A. Control Digital (FPGA y Lógica)
-
-#### 📌 Objetivo
+## 1. Control Digital (FPGA y Lógica)
+### Objetivo
 Desarrollar la lógica digital que monitorice y controle el motor, gestionando la adquisición de datos (sensores) y la activación de actuadores, utilizando una FPGA (por ejemplo, la XCU106 UltraScale).
 
-#### 🛠 Herramientas y Tecnologías
+### Herramientas y Tecnologías
 - **Vivado IP Integrator y Verilog HDL**: Para diseñar bloques de procesamiento y comunicación.
-- **Interfaces ADC/DAC**: Para convertir las señales analógicas de sensores (por ejemplo, presión, temperatura) a datos digitales y viceversa, si fuera necesario.
+- **Interfaces ADC/DAC**: Para convertir señales analógicas de sensores (por ejemplo, presión, temperatura) a datos digitales y viceversa.
 
-#### 🔑 Puntos Clave
+### Puntos Clave
 - Sincronización y gestión de tiempos críticos.
 - Integración con subsistemas mecánicos mediante protocolos (SPI, I²C, etc.).
 
----
+## 2. Diseño Mecánico
+### Objetivo
+Crear el modelo físico del motor, incluyendo la carcasa, la turbina (compuesta por rotor y estator) y la disposición de los componentes necesarios para el flujo de aire y combustible.
 
-### B. Diseño Mecánico
+### Herramientas y Tecnologías
+#### Diseño 3D y Modelado
+- **Herramientas**: FreeCAD, Onshape, Fusion 360 (versión gratuita).
+- **Simulación**: SimScale para CFD y FEA.
+#### Diseño de PCB
+- **Herramienta**: KiCad para la interconexión de sensores, actuadores y FPGA.
 
-#### 📌 Objetivo
-Crear el modelo físico del motor, que incluye la carcasa, la turbina (compuesta por rotor y estator) y la disposición de los componentes necesarios para el flujo de aire y combustible.
-
-#### 🛠 Herramientas y Tecnologías
-- **Diseño 3D y Modelado**:
-  - Herramientas gratuitas e intuitivas como FreeCAD, Onshape o Fusion 360 (versión gratuita).
-  - Simulaciones en SimScale para analizar el comportamiento del flujo (CFD) y realizar estudios de esfuerzo (FEA).
-- **Diseño de PCB (si es necesario)**:
-  - Uso de KiCad para diseñar el circuito que interconecte los sensores, actuadores y la FPGA.
-
-#### 🔑 Puntos Clave
+### Puntos Clave
 - Integración de un sistema de enfriamiento o disipación de energía.
-- Diseño de la estructura para minimizar vibraciones y maximizar la estabilidad en condiciones extremas.
+- Diseño para minimizar vibraciones y maximizar estabilidad en condiciones extremas.
 
----
+## 3. Teoría Avanzada y Propulsión Cuántica
+### Objetivo
+Explorar conceptos innovadores en física extrema, como interacción con campos magnéticos y radiación cósmica, inspirándose en tecnologías emergentes.
 
-### C. Teoría Avanzada y Propulsión Cuántica
+### Conceptos Teóricos
+- **Campos Magnéticos Suspendidos**: Generación de zonas de suspensión influenciando el flujo de energía/materia.
+- **Propulsión Basada en Radiación Cósmica y Energía Estelar**: Mecanismos que utilizan radiación y partículas cósmicas.
+- **Agujeros Negros y Curvatura Espacio-Tiempo**: Modelos teóricos de interacción con curvaturas espacio-temporales.
 
-#### 📌 Objetivo
-Incorporar ideas innovadoras basadas en física extrema, como la interacción con campos magnéticos, la utilización de radiación cósmica/energía estelar, y conceptos inspirados en agujeros negros para potenciar la propulsión.
+### Herramientas de Modelado y Simulación
+- MATLAB/Simscape Multibody, COMSOL Multiphysics: Simulación de campos electromagnéticos y dinámica cuántica.
+- Wolfram Mathematica: Ecuaciones de campo y modelos teóricos.
 
-#### 📚 Conceptos Teóricos a Integrar
-- **Campos Magnéticos Suspendidos**: Implementar estructuras magnéticas que generen “zonas de suspensión” en el motor, influyendo en el flujo de energía y materia en escalas microscópicas.
-- **Propulsión Basada en Radiación Cósmica y Energía Estelar**: Idear mecanismos en los que la radiación y partículas cósmicas aporten energía o momentum, inspirándose en tecnologías como el EM Drive o motores de plasma.
-- **Notas de Agujeros Negros y Curvatura Espacio-Tiempo**:
-  - Conceptualizar el motor como un sistema que, a nivel teórico, podría interactuar con curvaturas en el espacio-tiempo.
-  - Establecer parámetros y dimensiones “hipotéticas” basadas en modelos cuánticos y relativistas.
+### Puntos Clave
+- Marco teórico con validación experimental.
+- Integración de efectos cuánticos como módulos adicionales del motor.
 
-#### 🛠 Herramientas para Modelar y Simular
-- **MATLAB/Simscape Multibody o COMSOL Multiphysics**: Para simular los efectos de campos electromagnéticos y dinámicas en espacios curvos.
-- **Wolfram Mathematica**: Para trabajar con las ecuaciones de campo y modelos teóricos.
+## 4. Integración y Sinergia del Sistema
+### Objetivo
+Unificar los tres frentes para crear un motor híbrido con control digital preciso, estructura mecánica optimizada y una propulsión revolucionaria.
 
-#### 🔑 Puntos Clave
-- Se parte de un marco teórico que luego se debe validar (o al menos simular) en laboratorio.
-- Integrar los “efectos cuánticos” y la interacción con la radiación cósmica como módulos adicionales que complementen el rendimiento del motor.
+### Estrategia de Integración
+#### Fase de Diseño y Simulación
+- Simulación individual de cada subsistema con las herramientas mencionadas.
+- Ajuste de parámetros y compatibilidad entre interfaces.
 
----
+#### Fase de Prototipado y Pruebas
+- Banco de pruebas para validar la integración de la FPGA con la PCB y sensores/actuadores.
+- Simulación de condiciones extremas en laboratorio.
 
-### D. Integración y Sinergia del Sistema
-
-#### 📌 Objetivo
-Unificar los tres frentes para crear un motor híbrido que combine un control digital preciso, una estructura mecánica optimizada y un concepto revolucionario de propulsión.
-
-#### 🏗 Estrategia de Integración
-- **Fase de Diseño y Simulación**:
-  - Simular cada subsistema (digital, mecánico y teórico) por separado utilizando las herramientas mencionadas.
-  - Realizar iteraciones para ajustar parámetros y asegurar compatibilidad entre interfaces.
-- **Fase de Prototipado y Pruebas**:
-  - Montar un banco de pruebas para validar la integración de la FPGA con la PCB y los sensores/actuadores.
-  - Emplear simulaciones en entornos controlados para evaluar el desempeño del motor.
-- **Fase de Optimización y Escalado**:
-  - Ajustar el diseño basándose en los resultados de las pruebas.
-  - Optimizar la lógica digital, el diseño mecánico y la integración de conceptos teóricos.
-
----
-
-## 🚀 Conclusión
-Este proyecto propone una combinación de tecnologías avanzadas en control digital, diseño mecánico y propulsión teórica para desarrollar un motor innovador. Su validación dependerá de pruebas experimentales y simulaciones detalladas, explorando nuevas posibilidades en la ingeniería aeroespacial y la física aplicada.
+#### Fase de Optimización y Escalado
+- Ajuste del diseño basado en resultados de pruebas.
+- Optimización de la lógica digital, mecánica y teórica del motor.
 
