@@ -1,1 +1,18 @@
 
+Adquisición de datos:
+
+Conecta sensores (por ejemplo, de temperatura, presión o vibración) al sistema. Estos sensores pueden entregar señales analógicas o digitales.
+Si son señales analógicas, utiliza un ADC (ya sea integrado o externo) para digitalizarlas.
+Procesamiento en la FPGA (ZCU102):
+
+Diseña un bloque IP en Vivado que reciba y procese las señales del sensor en tiempo real.
+Implementa algoritmos de filtrado o control básico para extraer las métricas termodinámicas relevantes.
+Comunicación Ethernet:
+
+Utiliza la interfaz tri-speed Ethernet de la ZCU102, configurada a través de RGMII, para transmitir los datos procesados.
+Esto permite enviar la información a un PC o servidor para análisis posterior o control en tiempo real.
+Integración con Simulación Teórica:
+
+En el lado del software, podrías usar Python con Cantera para simular y comparar los datos reales con modelos teóricos de combustión y termodinámica.
+Esta integración te ayudaría a validar el comportamiento del motor o turbina y ajustar parámetros del sistema.
+En resumen, al conectar un sensor a la FPGA Ultrascale (ZCU102), puedes recopilar métricas de temperatura y otros parámetros críticos, procesarlas en tiempo real y enviarlas vía Ethernet para su análisis, lo cual permite una monitorización efectiva de los sistemas termodinámicos. Este enfoque combina hardware (Vivado) y simulación teórica (Cantera) para un control avanzado de motores a reacción o turbinas de gas.
