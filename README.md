@@ -86,6 +86,43 @@ Explorar conceptos innovadores en física extrema, como interacción con campos 
 - **Propulsión Basada en Radiación Cósmica y Energía Estelar**: Mecanismos que utilizan radiación y partículas cósmicas.
 - **Agujeros Negros y Curvatura Espacio-Tiempo**: Modelos teóricos de interacción con curvaturas espacio-temporales.
 
+# Monitoreo y Control de una Turbina de Gas o Motor a Reacción con ZCU106/ZCU104
+
+## 1. Adquisición de datos desde sensores
+Los sensores de temperatura, presión o vibración se conectan a la FPGA a través de:
+- **ADC externo (SPI/I2C)** si los sensores son analógicos.
+- **GPIO o MIO** si los sensores ya entregan señales digitales.
+- **Alternativa**: Usar los **PL I/O (LVCMOS/HP I/O)** para adquirir señales rápidas directamente.
+
+## 2. Procesamiento en FPGA (Vivado + VHDL/Verilog)
+- Diseñar un bloque IP que reciba y procese señales en tiempo real.
+- Implementar **filtros FIR/IIR en DSP** para mejorar la calidad de la señal.
+- Configurar **controladores térmicos** que ajusten la combustión basándose en las métricas adquiridas.
+
+## 3. Comunicación vía Ethernet (Tri-speed, GEM, RGMII)
+- Usar el **GEM (Gigabit Ethernet MAC)** de la FPGA y configurar **RGMII** para transmisión de datos en tiempo real.
+- Enviar las métricas a un **PC/Servidor con Python** para análisis posterior.
+
+## 4. Integración con Modelos Teóricos (Cantera + Python)
+- Comparar los datos adquiridos con **simulaciones termodinámicas en Cantera**.
+- Usar **AI/ML (TensorFlow Lite o PyTorch en ARM Cortex-A53)** para predecir fallos o mejorar el rendimiento de la turbina.
+
+## 📊 Diferencias Clave entre ZCU102, ZCU106 y ZCU104
+
+| Característica       | ZCU102      | ZCU106      | ZCU104      |
+|----------------------|------------|------------|------------|
+| **Lógica FPGA**      | 600K LUTs  | 504K LUTs  | 350K LUTs  |
+| **DSP Slices**       | 2520       | 1728       | 1542       |
+| **Ethernet**         | 4x GEM (Tri-speed) | 4x GEM | 4x GEM |
+| **ADC interno**      | No         | No         | No         |
+| **Interfaces**       | RGMII, PCIe, USB | RGMII, PCIe, USB | RGMII, PCIe, USB |
+| **Procesador**       | Quad ARM Cortex-A53 + Dual Cortex-R5 | Quad ARM Cortex-A53 + Dual Cortex-R5 | Quad ARM Cortex-A53 + Dual Cortex-R5 |
+
+## ✅ Conclusión
+- La **ZCU106 y ZCU102** son más potentes que la **ZCU104**, pero todas soportan el mismo flujo de trabajo.
+- Si buscas **más DSP y LUTs** (para procesamiento de señales más intensivo), **ZCU102/ZCU106** son mejores opciones.
+- Si se necesitara algo más **compacto y eficiente**, **ZCU104** sigue siendo viable para este tipo de proyectos.
+
 ### Herramientas de Modelado y Simulación
 - MATLAB/Simscape Multibody, COMSOL Multiphysics: Simulación de campos electromagnéticos y dinámica cuántica.
 - Wolfram Mathematica: Ecuaciones de campo y modelos teóricos.
