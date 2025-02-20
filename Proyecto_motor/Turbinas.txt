@@ -1,0 +1,134 @@
+# Monitoreo y Control de una Turbina de Gas / Motor a Reacción con ZCU106/ZCU104
+
+Este proyecto implementa un sistema de monitoreo y control en tiempo real para turbinas de gas y motores a reacción, utilizando las placas ZCU106 y ZCU104. La solución abarca desde la adquisición de datos de sensores hasta el procesamiento en FPGA y la comunicación vía Ethernet, permitiendo medir y reaccionar ante fluctuaciones críticas (como mezclas de combustible-aire en regímenes supercríticos).
+
+---
+
+# Gas Turbine / Jet Engine Monitoring and Control System with ZCU106/ZCU104
+
+This project implements a real-time monitoring and control system for gas turbines and jet engines using ZCU106 and ZCU104 boards. The solution covers sensor data acquisition, FPGA-based processing, and Ethernet communication, enabling the measurement and control of critical fluctuations (such as fuel-air mixing under supercritical conditions).
+
+---
+
+## Tabla de Contenido / Table of Contents
+
+- [Adquisición de Datos / Data Acquisition](#adquisici%C3%B3n-de-datos--data-acquisition)
+- [Procesamiento en FPGA / FPGA Processing](#procesamiento-en-fpga--fpga-processing)
+- [Comunicación Ethernet / Ethernet Communication](#comunicaci%C3%B3n-ethernet--ethernet-communication)
+- [Consideraciones de Diseño / Design Considerations](#consideraciones-de-dise%C3%B1o--design-considerations)
+- [Recursos y Referencias / Resources and References](#recursos-y-referencias--resources-and-references)
+- [Ideas y Sugerencias / Ideas and Suggestions](#ideas-y-sugerencias--ideas-and-suggestions)
+
+---
+
+## Adquisición de Datos / Data Acquisition
+
+### Español
+- **Sensores**: Se utilizarán sensores de temperatura, presión y vibración.
+- **Conexiones**:
+  - **ADC externo (SPI/I2C)** para sensores analógicos.
+  - **GPIO o MIO** para sensores que ya entregan señales digitales.
+  - **Alternativa**: Emplear PL I/O (LVCMOS/HP I/O) para adquirir señales rápidas directamente.
+
+### English
+- **Sensors**: The project will utilize temperature, pressure, and vibration sensors.
+- **Connections**:
+  - **External ADC (SPI/I2C)** for analog sensors.
+  - **GPIO or MIO** for sensors that provide digital signals.
+  - **Alternative**: Use PL I/O (LVCMOS/HP I/O) to capture high-speed signals directly.
+
+---
+
+## Procesamiento en FPGA / FPGA Processing
+
+### Español
+- **Diseño del Bloque IP**: Crear un bloque IP que reciba y procese señales en tiempo real.
+- **Filtros DSP**: Implementar filtros FIR/IIR para mejorar la calidad de la señal.
+- **Control Térmico**: Configurar controladores que ajusten la combustión basados en las métricas adquiridas.
+
+### English
+- **IP Block Design**: Develop an IP block to receive and process signals in real time.
+- **DSP Filtering**: Implement FIR/IIR filters to enhance signal quality.
+- **Thermal Control**: Configure controllers to adjust combustion based on the acquired metrics.
+
+---
+
+## Comunicación Ethernet / Ethernet Communication
+
+### Español
+- **Interfaz y Protocolo**:
+  - Utilizar el **GEM (Gigabit Ethernet MAC)** de la FPGA.
+  - Configurar **RGMII** para la transmisión de datos en tiempo real.
+- **Aplicación en Turbinas/Motores**:
+  - Monitorear la interacción entre estator y rotor, detectando fluctuaciones en el flujo de aire.
+  - Medir condiciones críticas (como la mezcla de combustible y aire en regímenes supercríticos) mediante sensores ultra sensibles (térmicos, magnéticos, etc.).
+  - Integrar módulos adicionales (por ejemplo, HDMI o VGA) para visualización en vivo de las condiciones del motor.
+
+### English
+- **Interface and Protocol**:
+  - Use the FPGA’s **GEM (Gigabit Ethernet MAC)**.
+  - Configure **RGMII** for real-time data transmission.
+- **Application in Turbines/Engines**:
+  - Monitor the interaction between stator and rotor, detecting fluctuations in airflow.
+  - Measure critical conditions (such as fuel-air mixing under supercritical regimes) using ultra-sensitive sensors (thermal, magnetic, etc.).
+  - Integrate additional modules (e.g., HDMI or VGA) for live visualization of engine status.
+
+---
+
+## Consideraciones de Diseño / Design Considerations
+
+### Español
+- **Modularidad**: Divide el proyecto en módulos independientes (adquisición, procesamiento, comunicación).
+- **Integración de IP Cores**: Aprovecha los IP cores de Vivado para Ethernet, UART, SPI/I2C, etc.
+- **Simulación y Verificación**: Implementa test benches y simulaciones para cada módulo, asegurando el correcto funcionamiento.
+- **Escalabilidad**: Diseña la arquitectura para facilitar la adaptación a diferentes sensores y escenarios operativos.
+- **Rendimiento en Tiempo Real**: Garantiza que la FPGA procese y transmita datos sin cuellos de botella.
+
+### English
+- **Modularity**: Break the project into independent modules (data acquisition, processing, communication).
+- **IP Core Integration**: Leverage Vivado IP cores for Ethernet, UART, SPI/I2C, and other protocols.
+- **Simulation and Verification**: Implement test benches and simulations for each module to ensure proper functionality.
+- **Scalability**: Design the architecture to easily adapt to various sensors and operational scenarios.
+- **Real-Time Performance**: Ensure the FPGA processes and transmits data without bottlenecks.
+
+---
+
+## Recursos y Referencias / Resources and References
+
+### Español
+- [Vivado Design Suite](https://www.xilinx.com/products/design-tools/vivado.html)
+- [Blitz64 Evecore](https://blitz64.org/)
+- [FPGA Prototyping by Verilog Examples](#) *(enlace al libro o PDF)*
+- Documentación de ZCU106 y ZCU104.
+
+### English
+- [Vivado Design Suite](https://www.xilinx.com/products/design-tools/vivado.html)
+- [Blitz64 Evecore](https://blitz64.org/)
+- [FPGA Prototyping by Verilog Examples](#) *(link to the book or PDF)*
+- Documentation for ZCU106 and ZCU104.
+
+---
+
+## Ideas y Sugerencias / Ideas and Suggestions
+
+### Español
+- **Interfaz de Usuario**: Considera desarrollar una interfaz gráfica (GUI) para visualizar datos en tiempo real.
+- **Monitoreo Remoto**: Implementa capacidades para monitoreo remoto y notificaciones en caso de anomalías.
+- **Procesador Embebido**: Explora la integración de un microcontrolador o procesador (por ejemplo, RISC-V) para complementar el procesamiento de la FPGA.
+- **Prototipado Rápido**: Realiza pruebas y prototipos en etapas para validar cada módulo antes de la integración final.
+- **Documentación Detallada**: Mantén una documentación extensa de cada módulo para facilitar futuras mejoras y mantenimientos.
+
+### English
+- **User Interface**: Consider developing a graphical user interface (GUI) for real-time data visualization.
+- **Remote Monitoring**: Implement remote monitoring capabilities and alerts in case of anomalies.
+- **Embedded Processor**: Explore integrating a microcontroller or processor (e.g., RISC-V) to complement FPGA processing.
+- **Rapid Prototyping**: Conduct staged testing and prototyping to validate each module before full integration.
+- **Detailed Documentation**: Maintain thorough documentation for each module to ease future improvements and maintenance.
+
+---
+
+Este README proporciona una estructura clara para organizar el proyecto. Se recomienda ampliar cada sección con diagramas, enlaces a repositorios de código, y ejemplos de simulación o implementación para facilitar la colaboración y el desarrollo futuro.
+
+---
+
+This README provides a clear structure to organize the project. It is recommended to expand each section with diagrams, links to code repositories, and simulation or implementation examples to facilitate collaboration and future development.
