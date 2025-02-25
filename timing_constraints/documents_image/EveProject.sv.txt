@@ -1,0 +1,1728 @@
+// EveCore Microcontroller
+//
+// Harry Porter - 4 July 2024
+//
+
+// System parameters  
+parameter CYCLES_PER_SECOND    = 25000000;                      // i.e., 25 MHz
+parameter DEBOUNCE_DELAY       = (CYCLES_PER_SECOND/1000) * 5;  // Debounce the buttons for 5 millseconds
+parameter UART_BAUD_RATE       = 115200;
+parameter MEMORY_SIZE_IN_BYTES = 8*1024;
+
+// ALU Function Codes
+`define ALU_AND         4'd0
+`define ALU_OR          4'd1
+`define ALU_XOR         4'd2
+`define ALU_NOT         4'd3
+`define ALU_NOT         4'd3
+`define ALU_ADD         4'd4
+`define ALU_ADDC        4'd5
+`define ALU_SUB         4'd6
+`define ALU_SUBC        4'd7
+`define ALU_NEG         4'd8
+`define ALU_CLR         4'd9
+`define ALU_SHL         4'd10
+`define ALU_SHLC        4'd11
+`define ALU_SHR         4'd12
+`define ALU_SHRC        4'd13
+`define ALU_INCR        4'd14
+`define ALU_DECR        4'd15
+
+// Opcode Types
+`define OP_MOV          5'd0
+`define OP_MOVI         5'd1
+`define OP_LD           5'd2
+`define OP_ST           5'd3
+`define OP_PUSH         5'd4
+`define OP_POP          5'd5
+`define OP_ADD16        5'd6
+`define OP_ALU          5'd7
+`define OP_LDSP         5'd8
+`define OP_LDCODE       5'd9
+`define OP_GOTOXY       5'd10
+`define OP_CALL         5'd11
+`define OP_RET          5'd12
+`define OP_IN           5'd13
+`define OP_OUT          5'd14
+`define OP_LDM          5'd15
+`define OP_STM          5'd16
+`define OP_CMP          5'd17
+`define OP_BRANCH       5'd18
+`define OP_NOP          5'd19
+`define OP_ILLEGAL      5'd20
+
+// Branch Conditions
+`define COND_EQ         4'd0
+`define COND_NE         4'd1
+`define COND_LT         4'd2
+`define COND_LE         4'd3
+`define COND_GT         4'd4
+`define COND_GE         4'd5
+`define COND_LTU        4'd6
+`define COND_LEU        4'd7
+`define COND_GTU        4'd8
+`define COND_GEU        4'd9
+`define COND_SN0        4'd10
+`define COND_SN1        4'd11
+`define COND_OV0        4'd12
+`define COND_OV1        4'd13
+`define COND_TRUE       4'd14
+`define COND_UNDEF      4'd15
+
+
+// Finite-State-Machine states
+typedef enum logic [2:0] { START_STATE,   FETCH_STATE,   EXEC_STATE,     EXEC_STATE_2,
+                           EXEC_STATE_3,  EXEC_STATE_4,  ILLEGAL_STATE,  UNUSED
+                              } STATE_TYPE;
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// Arithmetic Logic Unit
+//
+// This module takes two 8 bit inputs and produces an 8 bit output.
+// A "function code" input tells what operation to perform
+// (ADD, SUB, AND, OR,...). Condition code bits are also produced.
+//
+// Purely combinational.
+//
+// When running the testbench on EDA playground/Icaraus, I had problems.
+// To resolve this issue...
+//   Instead of "always_comb" use "always @(*) begin".
+//   For output connections, "output logic" wasn't accepted.
+//   So, create "output [7:0] o_ALU_out" for the output wire.
+//   Separately define "logic [7:0] ALU_out". Then add
+//   "assign o_ALU_out = ALU_out;". Also, fix the instatiation
+//   to change ".ALU_out" to ".o_ALU_out". Same for other outputs.
+//
+module ALU (
+    input   [3:0] func_code,
+    input   [7:0] A_in,
+    input   [7:0] B_in,
+    input         ALU_CY_in,
+
+    output logic  [7:0] ALU_out,
+    output logic        ALU_CY_out,
+    output logic        ALU_SN_out,
+    output logic        ALU_ZE_out,
+    output logic        ALU_OV_out
+  );
+
+  logic  [8:0] ADD_result;
+  logic        ADD_overflow;
+  logic  [8:0] SUB_result;
+  logic        SUB_overflow;
+  
+  assign ADD_result =  A_in + B_in  + ((func_code == `ALU_ADDC) ? ALU_CY_in : 0);
+  assign SUB_result = (A_in - B_in) - ((func_code == `ALU_SUBC) ? ALU_CY_in : 0);
+  assign ADD_overflow = (A_in[7] &  B_in[7] & ~ADD_result[7]) | (~A_in[7] & ~B_in[7] & ADD_result[7]);
+  assign SUB_overflow = (A_in[7] & ~B_in[7] & ~SUB_result[7]) | (~A_in[7] &  B_in[7] & SUB_result[7]);
+
+  always_comb begin
+    ALU_out = 0;
+    ALU_CY_out = 0;
+    ALU_SN_out = 0;
+    ALU_ZE_out = 0;
+    ALU_OV_out = 0;
+    case (func_code)
+      `ALU_AND:
+        begin
+          ALU_out = A_in & B_in;
+        end
+      `ALU_OR:
+        begin
+          ALU_out = A_in | B_in;
+        end
+      `ALU_XOR:
+        begin
+          ALU_out = A_in ^ B_in;
+        end
+      `ALU_NOT:
+        begin
+          ALU_out = ~A_in;
+        end
+      `ALU_ADD:
+        begin
+          ALU_out = ADD_result[7:0];
+          ALU_CY_out = ADD_result[8];
+          ALU_OV_out = ADD_overflow;
+        end
+      `ALU_ADDC:
+        begin
+          ALU_out = ADD_result[7:0];
+          ALU_CY_out = ADD_result[8];
+          ALU_OV_out = ADD_overflow;
+        end
+      `ALU_SUB:
+        begin
+          ALU_out = SUB_result[7:0];
+          ALU_CY_out = SUB_result[8];
+          ALU_OV_out = SUB_overflow;
+        end
+      `ALU_SUBC:
+        begin
+          ALU_out = SUB_result[7:0];
+          ALU_CY_out = SUB_result[8];
+          ALU_OV_out = SUB_overflow;
+        end
+      `ALU_INCR:
+        begin
+          ALU_out = A_in + 8'b00000001;  // CY not involved
+        end
+      `ALU_DECR:
+        begin
+          ALU_out = A_in - 8'b00000001;  // CY not involved
+        end
+      `ALU_CLR:
+        begin
+          ALU_out = 8'b00000000;
+        end
+      `ALU_NEG:
+        begin
+          ALU_out = (~A_in) + 8'b1;  // CY not involved
+          ALU_OV_out = (A_in == 8'h80) ? 1'b1 : 1'b0;
+       end
+      `ALU_SHL:
+        begin
+          ALU_out = { A_in [6: 0] , 1'b0 };
+          ALU_CY_out = A_in [7];
+        end
+      `ALU_SHLC:
+        begin
+          ALU_out = { A_in [6: 0] , ALU_CY_in };
+          ALU_CY_out = A_in [7];
+        end
+      `ALU_SHR:
+        begin
+          ALU_out = { 1'b0 , A_in [7: 1] };
+          ALU_CY_out = A_in [0];
+        end
+      `ALU_SHRC:
+        begin
+          ALU_out = { ALU_CY_in , A_in [7: 1] };
+          ALU_CY_out = A_in [0];
+        end
+      default:
+        begin
+          ALU_out = 8'hff;
+        end
+    endcase
+    ALU_SN_out = ALU_out[7];
+    ALU_ZE_out = (ALU_out == 8'b0) ? 1'b1 : 1'b0;
+  end
+endmodule  //  ALU
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// Debounce a button
+//
+module DEBOUNCE_FILTER #(parameter DEBOUNCE_LIMIT = 20) (
+    input  i_Clk,
+    input  i_Bouncy,
+    output o_Debounced
+  );
+    
+  reg [$clog2(DEBOUNCE_LIMIT)-1:0] r_Count;  // Initialized to 0 on iCE40
+  reg r_State;                               // Initialized to 0 on iCE40
+  
+  always_ff @(posedge i_Clk)
+    begin
+      if (i_Bouncy == r_State)
+        r_Count <= 0;
+      else if (r_Count == DEBOUNCE_LIMIT-1)
+        begin
+          r_State <= i_Bouncy;
+          r_Count <= 0;
+        end
+      else
+        r_Count <= r_Count + 1;
+    end
+  assign o_Debounced = r_State;
+endmodule  //  DEBOUNCE_FILTER
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// Decoder for 7 segment display
+//
+//         0
+//       -----
+//       |   |
+//     5 |   | 1     0 = ON
+//       | 6 |       1 = OFF
+//       -----
+//       |   |
+//     4 |   | 2
+//       | 3 |
+//       -----
+//
+module SEVEN_SEG_DECODER (
+    input logic [3:0] in4,
+    output logic [6:0] out7
+  );
+  
+  always_comb
+    case (in4)
+                     //  654_3210     These are on:
+      4'h0:    out7 = 7'b100_0000;   // 0,1,2,3,4,5
+      4'h1:    out7 = 7'b111_1001;   // 1,2
+      4'h2:    out7 = 7'b010_0100;   // 0,1,3,4,6
+      4'h3:    out7 = 7'b011_0000;   // 0,1,2,3,6
+      4'h4:    out7 = 7'b001_1001;   // 1,2,5,6
+      4'h5:    out7 = 7'b001_0010;   // 0,2,3,5,6
+      4'h6:    out7 = 7'b000_0010;   // 0,2,3,4,5,6
+      4'h7:    out7 = 7'b111_1000;   // 0,1,2
+      4'h8:    out7 = 7'b000_0000;   // all
+      4'h9:    out7 = 7'b001_1000;   // 0,1,2,5,6
+      4'hA:    out7 = 7'b000_1000;   // 0,1,2,4,5,6
+      4'hB:    out7 = 7'b000_0011;   // 2,3,4,5,6
+      4'hC:    out7 = 7'b100_0110;   // 0,3,4,5
+      4'hD:    out7 = 7'b010_0001;   // 1,2,3,4,6
+      4'hE:    out7 = 7'b000_0110;   // 0,3,4,5,6
+      4'hF:    out7 = 7'b000_1110;   // 0,4,5,6
+      default: out7 = 7'b111_1111;
+    endcase
+endmodule  //  SEVEN_SEG_DECODER
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// DEBUGGING OUTPUT CONTROL
+//
+// This module controls the seven-segment display. It takes several "data" bytes and
+// displays whichever byte is selected by the push-button switches. This allows
+// the user to examine more internal state than 2 digits alone could handle.
+//
+module OUTPUT_CONTROL (           // Display when...
+    input logic  [7:0] data_0,    //   no buttons pressed
+    input logic  [7:0] data_1,    //   sw_1 pressed
+    input logic  [7:0] data_2,    //   sw_2 pressed
+    input logic  [7:0] data_3,    //   sw_3 pressed
+    input logic  [7:0] data_4,    //   sw_4 pressed
+    input logic  [7:0] data_5,    //   sw_1 & sw_3: top two buttons
+    input logic  [7:0] data_6,    //   sw_2 & sw_4: bottom two buttons
+    input logic  [7:0] data_7,    //   sw_2 & sw_3: diagonal buttons
+    input logic        switch_1,
+    input logic        switch_2,
+    input logic        switch_3,
+    input logic        switch_4,
+    output logic [6:0] HEX_digit_1,
+    output logic [6:0] HEX_digit_2
+  );
+
+  logic [7:0] value_to_display;
+
+  always_comb begin    
+    case ( {switch_1, switch_2, switch_3, switch_4} )
+      4'b0000:  value_to_display = data_0;
+      4'b1000:  value_to_display = data_1;
+      4'b0100:  value_to_display = data_2;
+      4'b0010:  value_to_display = data_3;
+      4'b0001:  value_to_display = data_4;
+      4'b1010:  value_to_display = data_5;
+      4'b0101:  value_to_display = data_6;
+      4'b0110:  value_to_display = data_7;
+      default:  value_to_display = 8'h00;
+    endcase
+  end
+  
+  SEVEN_SEG_DECODER MySegment1
+    ( .in4  (value_to_display [7:4]),
+      .out7 (HEX_digit_1) );
+  
+  SEVEN_SEG_DECODER MySegment2
+    ( .in4  (value_to_display [3:0]),
+      .out7 (HEX_digit_2) );
+   
+endmodule  //  OUTPUT_CONTROL
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// This module describes the memory.
+//  
+// The read occurs on the rising edge of the clock.
+// The write occurs on the rising edge of the clock.
+// The read and write use the same address. (Presumably,
+// the core will either read or write a byte on any one clock.)
+//         
+module MEMORY (
+    input  logic        clock,
+    input  logic        clock_en,
+    input  logic [15:0] addr,
+    output logic [7:0]  data_out,
+         
+    input  logic        write_enab,
+    input  logic [7:0]  data_in
+  );       
+
+  logic [7:0] mem [MEMORY_SIZE_IN_BYTES-1:0];
+        
+  initial $readmemh ("C:\Users\hhpor\Desktop\EveProject\ROMData.hex", mem);
+    
+  always_ff @(posedge clock) if (clock_en)
+    begin
+      if (write_enab)
+        mem [addr] <= data_in;
+      data_out <= mem [addr];
+    end 
+endmodule  //  MEMORY
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// This module takes an 8 bit opcode and dissects it. The main output
+// is "op_type", the category of the instruction (e.g., OP_MOV, OP_BRANCH, ...).
+// It also isolates fields of interest (e.g., reg_d, func_code, ...).
+//
+// Purely combinational.
+//
+module INSTRUCTION_DECODER (
+    input        [7:0] inst,
+    output logic [4:0] op_type,
+    output logic [2:0] reg_d,         // 000=A, ..., 111=M2
+    output logic [2:0] reg_s,
+    output logic       add16_reg_d,   // 0=XY; 1=M
+    output logic [1:0] add16_reg_s,   // 00=XY; 01=M; 10=0; 11=A
+    output logic [3:0] func_code,
+    output logic [3:0] cond_code
+  );
+    
+  assign reg_d = inst[2:0];
+  assign reg_s = inst[5:3];
+  assign add16_reg_d = inst[0];
+  assign add16_reg_s = inst[2:1];
+  assign func_code = inst[3:0];
+  assign cond_code = inst[3:0];
+  
+  always_comb begin
+    case (inst[7:4])
+      4'b0000: op_type = (inst[3:0] == 4'b0000) ? `OP_NOP : `OP_ILLEGAL;
+      4'b0100: op_type = `OP_MOV;
+      4'b0101: op_type = `OP_MOV;
+      4'b0110: op_type = `OP_MOV;
+      4'b0111: op_type = `OP_MOV;
+      4'b1000: op_type = inst[3] ? `OP_ST : `OP_LD;
+      4'b1001: op_type = inst[3] ? `OP_POP : `OP_PUSH;
+      4'b1010: op_type = inst[3] ? `OP_ADD16 : `OP_MOVI;
+      4'b1011: op_type = `OP_ALU;
+      4'b1100: case (inst[3:0])
+                 4'b0000: op_type = `OP_LDSP;
+                 4'b0001: op_type = `OP_LDCODE;
+                 4'b0010: op_type = `OP_GOTOXY;
+                 4'b0011: op_type = `OP_CALL;
+                 4'b0100: op_type = `OP_RET;
+                 4'b0101: op_type = `OP_IN;
+                 4'b0110: op_type = `OP_OUT;
+                 4'b0111: op_type = `OP_LDM;
+                 4'b1000: op_type = `OP_STM;
+                 4'b1001: op_type = `OP_CMP;
+                 default: op_type = `OP_ILLEGAL;
+               endcase
+      4'b1101: op_type = `OP_BRANCH;
+      default: op_type = `OP_ILLEGAL;
+    endcase
+  end  
+endmodule  //  INSTRUCTION_DECODER
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//       
+// This module describes the registers (A,B,C,D,X,Y,M1,M2).
+//       
+// On the pos-edge of the clock...
+//   If "reset" is high, then the regs are set to zero;
+//   Otherwise, if "reg_write_en_8" is high, one byte reg will be updated;
+//   Otherwise, if "reg_write_en_xy" is high, XY will be updated;
+//   Otherwise, if "reg_write_en_m" is high, M will be updated;
+//
+module REGISTERS (
+    input  wire         clock,
+    input  logic        clock_en,
+    input  wire         reset,
+    input  wire         reg_write_en_8,
+    input  wire         reg_write_en_xy,
+    input  wire         reg_write_en_m,
+         
+    input  wire   [2:0] reg_rd_addr,
+    input  wire   [2:0] reg_wr_addr,
+         
+    input  wire  [15:0] data_in,
+    output wire   [7:0] data_out,
+    output wire   [7:0] a_out,
+    output wire   [7:0] b_out,
+    output wire  [15:0] xy_out,
+    output wire  [15:0] m_out
+  );       
+         
+  reg [7:0] [7:0] regs;   // [Reg size] [Num Regs]
+         
+  assign data_out = regs[reg_rd_addr];
+  assign a_out    = regs[0];
+  assign b_out    = regs[1];
+  assign xy_out   = { regs[4], regs[5] };
+  assign m_out    = { regs[6], regs[7] };
+   
+  always_ff @(posedge clock) if (clock_en)
+    begin
+      if (reset)
+        begin
+          regs[0] <= 0;
+          regs[1] <= 0;
+          regs[2] <= 0;
+          regs[3] <= 0;
+          regs[4] <= 0;
+          regs[5] <= 0;
+          regs[6] <= 0;
+          regs[7] <= 0;
+        end
+      else if (reg_write_en_8)
+        begin
+          regs[reg_wr_addr] <= data_in [7:0];
+        end
+      else if (reg_write_en_xy)
+        begin
+          regs[4] <= data_in [15:8];
+          regs[5] <= data_in [7:0];
+        end
+      else if (reg_write_en_m)
+        begin
+          regs[6] <= data_in [15:8];
+          regs[7] <= data_in [7:0];
+        end
+    end
+endmodule  //  REGISTERS
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// This module implements the core itself.
+//
+module CORE (
+    input logic          clock,
+    input logic          single_step_button,
+    input logic          reset,
+    
+    output logic [7:0]   debug_pc_out,         // Signals to be displayed on 7 segment LEDs
+    output logic [7:0]   debug_inst_out,       // .
+    output logic [2:0]   debug_state_out,      // .
+    output logic [2:0]   debug_next_state_out, // .
+    output logic [7:0]   debug_misc_out_1,     // .
+    output logic [7:0]   debug_misc_out_2,     // .
+    
+    output logic [7:0]   o_OUT_reg_num,        // Used for OUT instruction TO device:
+    output logic [7:0]   o_OUT_reg_data,       // .
+    output logic         o_OUT_wr_en,          // .  Pulse this once to write to I/O register
+    input  logic         i_OUT_wait,           // .  Must stall until low
+    
+    output logic [7:0]   o_IN_reg_num,         // Signals for IN instruction FROM device:
+    output logic         o_IN_read,            // .  Pulse this once to read from I/O register
+    input  logic [7:0]   i_IN_reg_data,        // .
+    input  logic         i_IN_ready            // .  This is high when data is available
+  );
+ 
+  // --------------------  Registers  --------------------
+  logic [2:0]  state;
+  logic [15:0] pc;            // The Program Counter
+  logic [15:0] sp;            // The Stack Pointer
+  logic [7:0]  inst_save;     // The instruction-save register
+  logic [7:0]  msb;           // 3 byte instructions have this form: OP-MSB-LSB
+  logic        CY;            // Condition Codes from ALU
+  logic        SN;
+  logic        ZE;
+  logic        OV;
+    
+  //  --------------------  Not registers  --------------------
+  logic [7:0]  inst;          // Instruction currently in execution
+  logic [2:0]  next_state;
+  
+  logic        pc_wr_en;
+  logic [15:0] next_pc;
+  logic [15:0] pc_plus_2;
+  logic        cond_wr_en;
+  logic        sp_wr_en;
+  logic [15:0] next_sp;
+  logic [15:0] sp_minus_one;
+  logic [15:0] sp_minus_two;
+  logic        msb_wr_en;
+  logic [7:0]  next_msb;
+  logic [15:0] add16_result;
+  logic        take_the_jump;
+  logic        LT_signed;
+  logic        LE_signed;
+  
+  // Signals to/from the MEMORY unit:
+  logic [15:0] mem_addr_in;
+  logic        mem_wr_en;
+  logic [7:0]  mem_data_in;
+  
+  wire [7:0]   mem_data_out;
+
+  // Signals from INSTRUCTION_DECODER:
+  wire [4:0]   op_type;
+  wire [2:0]   reg_d;           // 000==A,...111=M2
+  wire [2:0]   reg_s;
+  wire         add16_reg_d;     // 0=xy; 1=M
+  wire [1:0]   add16_reg_s;     // 00=XY; 01=M; 10=0; 11=A
+  wire [3:0]   func_code;
+  wire [3:0]   cond_code;
+
+  // Signals to/from REGISTERS unit:
+  logic         reg_write_en_8;
+  logic         reg_write_en_xy;
+  logic         reg_write_en_m;
+  logic   [2:0] reg_rd_addr;
+  logic   [2:0] reg_wr_addr;         
+  logic  [15:0] reg_data_in;
+
+  wire    [7:0] reg_data_out;
+  wire    [7:0] reg_a_out;
+  wire    [7:0] reg_b_out;
+  wire   [15:0] reg_xy_out;
+  wire   [15:0] reg_m_out;
+  
+  // Signals to/from ALU:
+  logic   [3:0] ALU_func_code;
+  logic   [7:0] ALU_A_in;
+  logic   [7:0] ALU_B_in;
+  logic         ALU_CY_in;
+
+  wire    [7:0] ALU_result_out;
+  wire          ALU_CY_out;
+  wire          ALU_SN_out;
+  wire          ALU_ZE_out;
+  wire          ALU_OV_out;
+  
+  // Used to force reset at power-on after a small delay
+  logic   [3:0] power_on_counter;    // Cleared to 0 at power-on
+      
+  // Clock Enable
+  reg           prev_ss_button;   // Previous value of single-step button
+  reg           clock_en;         // Goes high for one clock on button rising edge
+  
+  // Whenever the Single-Step button is pressed, raise "clock_en" for one cycle. 
+  always_ff @(posedge clock) begin
+    if (reset)
+      begin
+        prev_ss_button <= 0;
+        clock_en <= 0;
+      end
+    prev_ss_button <= single_step_button;  // Retain the prev button state
+    if ((single_step_button == 1) && (prev_ss_button == 0))
+      clock_en <= 1;
+    else
+      clock_en <= 1;      // Use 1 for continuous running
+  end
+  
+  // NOTE: If you enable single-stepping on the above line, then many more FPGA
+  //       logic cells will be consumed. If your FPGA isn't large enough, consider
+  //       commenting out the UART modules to save a bit of logic, at the cost
+  //       of disabling user I/O.
+          
+  MEMORY MyMemory
+    ( .clock        (clock),
+      .clock_en     (clock_en),
+      .addr         (mem_addr_in),
+      .data_out     (mem_data_out),
+      .write_enab   (mem_wr_en),
+      .data_in      (mem_data_in) );
+
+  INSTRUCTION_DECODER MyDecoder
+    ( .inst         (inst),
+      .op_type      (op_type),
+      .reg_d        (reg_d),
+      .reg_s        (reg_s),
+      .add16_reg_d  (add16_reg_d),
+      .add16_reg_s  (add16_reg_s),
+      .func_code    (func_code),
+      .cond_code    (cond_code) );
+
+  REGISTERS MyRegisters
+    ( .clock           (clock),
+      .clock_en        (clock_en),
+      .reset           (reset),
+      .reg_write_en_8  (reg_write_en_8),  // inputs
+      .reg_write_en_xy (reg_write_en_xy),
+      .reg_write_en_m  (reg_write_en_m),
+      .reg_rd_addr     (reg_rd_addr),
+      .reg_wr_addr     (reg_wr_addr),
+      .data_in         (reg_data_in),
+      
+      .data_out        (reg_data_out),    // outputs
+      .a_out           (reg_a_out),
+      .b_out           (reg_b_out),
+      .xy_out          (reg_xy_out),
+      .m_out           (reg_m_out) );      
+
+  ALU MyALU
+  ( .func_code      (ALU_func_code),   // inputs
+    .A_in           (ALU_A_in),
+    .B_in           (ALU_B_in),
+    .ALU_CY_in      (ALU_CY_in),
+    
+    .ALU_out        (ALU_result_out),  // outputs
+    .ALU_CY_out     (ALU_CY_out),
+    .ALU_SN_out     (ALU_SN_out),
+    .ALU_ZE_out     (ALU_ZE_out),
+    .ALU_OV_out     (ALU_OV_out) );
+
+  assign debug_pc_out         = pc[7:0];
+  assign debug_inst_out       = inst;
+  assign debug_state_out      = state;
+  assign debug_next_state_out = next_state;
+  assign debug_misc_out_1     = reg_a_out;
+  assign debug_misc_out_2     = reg_b_out;
+  
+  // ***** The following is to aid CUT/PASTE for debug_misc_out above *****
+  // reg_a_out    reg_b_out     {4'b0, CY, SN, ZE, OV}     { 3'b0 , clock, 3'b0 , clock_en }
+  // sp[15:8]     mem_addr_in[15:8]     msb          reg_m_out[15:8]
+  // sp[7:0]      mem_addr_in[7:0]      pc[15:8]     reg_m_out[7:0]     op_type
+
+  // On each clock edge, go to next state...
+  // Load these registers, as needed:
+  //      state, pc, inst, sp, msb, cond. codes
+  always_ff @(posedge clock) if (clock_en)
+    begin
+      if (reset || (power_on_counter < 10))
+        begin
+          state            <= START_STATE;
+          pc               <= 16'h0000;
+          sp               <= 16'h0000;
+          inst_save        <= 8'h00;
+          // NOTE: The iCE40 FPGA initializes DFFs, so initialization
+          //       on reset is redundant for iCE40. However, there seem to
+          //       be problems at power-on. A delay (keeping the FSM in the
+          //       START_STATE for a few cycles) seems to work.
+          power_on_counter <= power_on_counter + 1;
+        end
+      else
+        begin
+          state <= next_state;
+          if (state == FETCH_STATE)
+            inst_save <= mem_data_out;
+          if (pc_wr_en)
+            pc <= next_pc;
+          if (msb_wr_en)
+            msb <= next_msb;
+          if (sp_wr_en)
+            sp <= next_sp;
+          if (cond_wr_en)
+            begin
+              CY <= ALU_CY_out;
+              SN <= ALU_SN_out;
+              ZE <= ALU_ZE_out;
+              OV <= ALU_OV_out;
+            end
+        end
+    end
+    
+  always_comb begin
+  
+    inst = (state == FETCH_STATE) ? mem_data_out : inst_save;
+    
+    // Signals to PROGRAM MEMORY unit:
+    mem_addr_in = pc;
+    mem_wr_en = 0;
+    mem_data_in = reg_data_out;
+    
+    // Signals to REGISTER unit:
+    reg_write_en_8 = 0;
+    reg_write_en_xy = 0;
+    reg_write_en_m = 0;
+    reg_rd_addr = reg_s;
+    reg_wr_addr = reg_d;         
+    reg_data_in = mem_data_out;
+    
+    // Signals to ALU unit:
+    ALU_func_code = func_code;
+    ALU_A_in = reg_a_out;
+    ALU_B_in = reg_b_out;
+    ALU_CY_in = CY;
+    
+    // Signals to I/O system:
+    o_OUT_reg_num = 0;
+    o_OUT_reg_data = 0;
+    o_OUT_wr_en = 0;
+    o_IN_reg_num = 0;
+    o_IN_read = 0;
+
+    // Misc Control:
+    next_state = FETCH_STATE;
+
+    pc_wr_en = 1;
+    next_pc = pc + 1;
+    pc_plus_2 = pc + 2;
+
+    msb_wr_en = 0;
+    next_msb = 0;
+
+    sp_wr_en = 0;
+    next_sp = sp + 1;
+    sp_minus_one = sp - 1;
+    sp_minus_two = sp - 2;
+    
+    cond_wr_en = 0;
+    
+    take_the_jump = 0;
+    LT_signed = SN ^ OV;
+    LE_signed = LT_signed | ZE;
+    
+    // Determine whether to take the BRANCH
+    case (inst [3:0])
+      `COND_EQ:    take_the_jump = ZE;
+      `COND_NE:    take_the_jump = ~ZE;
+      `COND_LT:    take_the_jump = LT_signed;
+      `COND_LE:    take_the_jump = LE_signed;
+      `COND_GT:    take_the_jump = ~LE_signed;
+      `COND_GE:    take_the_jump = ~LT_signed;
+      `COND_LTU:   take_the_jump = CY;
+      `COND_LEU:   take_the_jump = CY | ZE;
+      `COND_GTU:   take_the_jump = ~(CY | ZE);
+      `COND_GEU:   take_the_jump = ~CY;
+      `COND_SN0:   take_the_jump = ~SN;
+      `COND_SN1:   take_the_jump = SN;
+      `COND_OV0:   take_the_jump = ~OV;
+      `COND_OV1:   take_the_jump = OV;
+      `COND_TRUE:  take_the_jump = 1;
+      `COND_UNDEF: take_the_jump = 1;
+    endcase
+
+    // Compute the value to store, in case we have an ADD16 instruction.
+    case (add16_reg_s)
+      2'b00: add16_result = reg_xy_out;
+      2'b01: add16_result = reg_m_out;
+      2'b10: add16_result = 16'b0;
+      2'b11: add16_result = { 8'b0, reg_a_out };
+    endcase
+    add16_result = add16_result + { msb, mem_data_out };
+
+    // Default action: Read next byte from memory, increment PC, go to FETCH_STATE.
+    //    mem_addr_in = pc;
+    //    next_pc = pc + 1;
+    //    pc_wr_en = 1;
+    //    next_state = FETCH_STATE;
+    
+    case (state)
+    
+      START_STATE:
+          begin
+          end
+        
+      FETCH_STATE:
+        begin
+          case (op_type)
+            `OP_MOV:
+              begin
+                reg_data_in = reg_data_out;
+                reg_write_en_8 = 1;
+              end
+            `OP_ALU:
+              begin
+                reg_data_in = ALU_result_out;
+                reg_wr_addr = 0;   // A reg
+                reg_write_en_8 = 1;
+                cond_wr_en = 1;
+              end
+            `OP_CMP:
+              begin
+                ALU_func_code = `ALU_SUB;
+                cond_wr_en = 1;
+              end
+            `OP_MOVI:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_OUT:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_IN:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_BRANCH:
+              begin
+                if (~take_the_jump)
+                  begin
+                //  next_state = FETCH_STATE;
+                    next_pc = pc + 3;
+                    mem_addr_in = pc_plus_2;
+                  end
+                else
+                  begin
+                    next_state = EXEC_STATE;
+                  end
+              end
+            `OP_ADD16:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_LDSP:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_LD:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_LDM:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_ST:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_STM:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_CALL:
+              begin
+                next_state = EXEC_STATE;
+              end
+            `OP_RET:
+              begin
+                next_state = EXEC_STATE;
+                mem_addr_in = sp;
+            //  next_sp = sp + 1;
+                sp_wr_en = 1;
+             end
+            `OP_LDCODE:
+              begin
+                next_state = EXEC_STATE;
+                pc_wr_en = 0;
+                mem_addr_in = reg_xy_out;
+              end
+            `OP_PUSH:
+              begin
+                next_state = EXEC_STATE;
+                pc_wr_en = 0;
+                reg_rd_addr = reg_d;
+                mem_addr_in = sp_minus_one;
+                next_sp = sp_minus_one;
+                sp_wr_en = 1;
+                mem_wr_en = 1;
+              end
+            `OP_POP:
+              begin
+                next_state = EXEC_STATE;
+                pc_wr_en = 0;
+                mem_addr_in = sp;
+            //  next_sp = sp + 1;
+                sp_wr_en = 1;
+              end
+            `OP_GOTOXY:
+              begin
+                mem_addr_in = reg_xy_out;
+                next_pc = reg_xy_out + 1;
+              end
+            `OP_ILLEGAL:
+              begin
+                next_state = ILLEGAL_STATE;
+                pc_wr_en = 0;
+              end
+         // `OP_NOP:
+         //   begin
+         //   end
+            default:
+              begin
+              end
+          endcase
+        end
+        
+      EXEC_STATE:
+        begin
+          case (op_type)
+            `OP_MOVI:
+              begin
+            //  reg_data_in = mem_data_out;
+                reg_write_en_8 = 1;
+              end
+            `OP_LDSP:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_ADD16:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_OUT:
+              begin
+                next_state = EXEC_STATE_2;
+                pc_wr_en = 0;
+                o_OUT_reg_num = mem_data_out;
+                o_OUT_wr_en = 1;
+                o_OUT_reg_data = reg_a_out;
+              end
+            `OP_IN:
+              begin
+                next_state = EXEC_STATE_2;
+                pc_wr_en = 0;
+                o_IN_reg_num = mem_data_out;
+                o_IN_read = 1;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_BRANCH:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_LD:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_LDM:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_ST:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_STM:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+              end
+            `OP_CALL:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+                pc_wr_en = 0;
+                mem_data_in = next_pc[7:0];
+                mem_addr_in = sp_minus_one;
+                mem_wr_en = 1;
+              end
+            `OP_RET:
+              begin
+                next_state = EXEC_STATE_2;
+                next_msb = mem_data_out;
+                msb_wr_en = 1;
+                mem_addr_in = sp;
+            //  next_sp = sp + 1;
+                sp_wr_en = 1;
+              end
+            `OP_LDCODE:
+              begin
+            //  reg_data_in = mem_data_out;
+                reg_wr_addr = 0;  // A reg       
+                reg_write_en_8 = 1;
+              end
+            `OP_POP:
+              begin
+            //  reg_data_in = mem_data_out;
+            //  reg_wr_addr = reg_d;
+                reg_write_en_8 = 1;
+              end
+          endcase
+        end
+        
+      EXEC_STATE_2:
+        begin
+          case (op_type)
+            `OP_LDSP:
+              begin
+                next_sp = { msb, mem_data_out };
+                sp_wr_en = 1;
+              end
+            `OP_ADD16:
+              begin
+                reg_data_in = add16_result;
+                if (add16_reg_d == 1'b0)  // dest == XY
+                  reg_write_en_xy = 1;
+                else                      // dest == M
+                  reg_write_en_m = 1;
+              end
+            `OP_OUT:
+              if (i_OUT_wait)
+                begin
+                  next_state = EXEC_STATE_2;
+                  pc_wr_en = 0;
+                end
+            `OP_IN:
+              begin
+                o_IN_reg_num = msb;
+                o_IN_read = 1;
+                if (i_IN_ready)
+                  begin
+                    reg_data_in = i_IN_reg_data;
+                    reg_wr_addr = 0;  // A-reg
+                    reg_write_en_8 = 1;
+                  end
+                else
+                  begin
+                    next_state = EXEC_STATE_2;
+                    pc_wr_en = 0;
+                  end
+              end
+            `OP_BRANCH:
+              begin
+                mem_addr_in = { msb , mem_data_out };
+                next_pc  = { msb , mem_data_out } + 1;
+              end
+            `OP_LD:
+              begin
+                next_state = EXEC_STATE_3;
+                mem_addr_in = { msb, mem_data_out };
+                pc_wr_en = 0;
+              end
+            `OP_LDM:
+              begin
+                next_state = EXEC_STATE_3;
+                mem_addr_in = { msb, mem_data_out } + reg_m_out;
+                pc_wr_en = 0;
+              end
+            `OP_ST:
+              begin
+                next_state = EXEC_STATE_3;
+                mem_addr_in = { msb, mem_data_out };
+                reg_rd_addr = reg_d;
+            //  mem_data_in = reg_data_out;
+                mem_wr_en = 1;
+                pc_wr_en = 0;
+              end
+            `OP_STM:
+              begin
+                next_state = EXEC_STATE_3;
+                mem_addr_in = { msb, mem_data_out } + reg_m_out;
+                mem_data_in = reg_a_out;
+                mem_wr_en = 1;
+                pc_wr_en = 0;
+              end
+            `OP_CALL:
+              begin
+                next_state = EXEC_STATE_3;
+                pc_wr_en = 0;
+              end
+            `OP_RET:
+              begin
+                mem_addr_in = { msb, mem_data_out };
+                next_pc = { msb, mem_data_out } + 1;
+              end
+            endcase
+          end
+
+      EXEC_STATE_3:
+        begin
+          case (op_type)
+            `OP_LD:
+              begin
+            //  reg_data_in = mem_data_out;
+                reg_write_en_8 = 1;
+              end
+            `OP_LDM:
+              begin
+            //  reg_data_in = mem_data_out;
+                reg_wr_addr = 3'b000;  // A reg         
+                reg_write_en_8 = 1;
+              end
+            `OP_CALL:
+              begin
+                next_state = EXEC_STATE_4;
+             // pc_wr_en = 1;
+                mem_data_in = next_pc[15:8];  // grab next_pc before next stmt.
+                next_pc = { msb, mem_data_out };
+                mem_addr_in = sp_minus_two;
+                mem_wr_en = 1;
+                next_sp = sp_minus_two;
+                sp_wr_en = 1;
+              end
+          endcase
+        end
+
+      EXEC_STATE_4:
+        begin
+        end
+        
+      default:
+        begin
+          next_state = ILLEGAL_STATE;
+          pc_wr_en = 0;
+        end
+        
+    endcase
+  end
+
+endmodule  //  CORE
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// UART driver modules: UART_RX, UART_TX
+//
+//   Originally downloaded from http://www.nandland.com
+//   Modified:  Harry Porter - 7 January 2020
+//              Harry Porter - 29 November 2022
+//              Harry Porter - 15 May 2024
+//
+// IDLE and STOP bits are HIGH
+// START bit is LOW
+// Sends 1 STOP bit, no parity
+// Sends 8 data bits; sends LSB bit first
+//
+// CLKS_PER_BIT is a compile-time constant computed as:
+//    CLKS_PER_BIT = CYCLES_PER_SECOND / UART_BAUD_RATE
+// EXAMPLE: Assume a 25 MHz clock...
+//     Clock period: 40 nSec
+//        (40 nSec x 25,000,000 = 1 Sec)
+//     For 115,200 baud...
+//        25,000,000 / 115,200 = 217.0 Clocks Per Bit.
+//
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// This module is the UART Receiver.  This receiver is able to
+// receive 8 bits of serial data, one start bit, one stop bit,
+// and no parity bit (i.e., 8-N-1).  When receive is complete,
+// o_data_avail will be driven high for one clock cycle.
+//
+module UART_RX (
+    input        clock,
+    input        i_rx,             // Connect this to the Rx line
+    output       o_data_avail,     // HIGH for one clock when byte received
+    output [7:0] o_data_byte       // The byte
+  );
+
+  localparam CLKS_PER_BIT = CYCLES_PER_SECOND / UART_BAUD_RATE;
+
+  localparam IDLE_STATE     = 2'b00;
+  localparam START_STATE    = 2'b01;
+  localparam GET_BIT_STATE  = 2'b10;
+  localparam STOP_STATE     = 2'b11;
+
+  reg        rx_buffer      = 1'b1;
+  reg        rx             = 1'b1;
+
+  reg [1:0]  state          = 0;
+  reg [$clog2(CLKS_PER_BIT)-1:0] counter = 0;
+  reg [2:0]  bit_index      = 0;   // where to place the next bit (0...7)
+  reg        data_avail     = 0;
+  reg [7:0]  data_byte      = 0;
+
+  assign o_data_avail = data_avail;
+  assign o_data_byte  = data_byte;
+
+  // Double-buffer the incoming RX line. This allows it to be
+  // used in the UART RX Clock Domain and removes problems caused
+  // by metastability.
+  always_ff @(posedge clock)
+    begin
+      rx_buffer <= i_rx;
+      rx        <= rx_buffer;
+    end
+
+  // The state machine.
+  always_ff @(posedge clock)
+    begin
+
+      case (state)
+      
+        IDLE_STATE :
+          begin
+            data_avail <= 0;
+            counter    <= 0;
+            bit_index  <= 0;
+            if (rx == 0)          // Start bit detected
+              state <= START_STATE;
+          end
+
+        // Wait until the middle of the start bit
+        START_STATE :
+          begin
+            if (counter == (CLKS_PER_BIT-1)/2)
+              begin
+               if (rx == 0)  // If still low at the middle of the start bit...
+                  begin
+                    counter <= 0;
+                    state   <= GET_BIT_STATE;
+                  end
+                else
+				  begin
+                    state <= IDLE_STATE;
+				  end
+              end
+            else
+              begin
+                counter <= counter + 16'b1;
+              end
+          end
+
+        // Wait CLKS_PER_BIT-1 clock cycles to sample RX for next bit
+        GET_BIT_STATE :
+          begin
+            if (counter < CLKS_PER_BIT-1)
+              begin
+                counter <= counter + 16'd1;
+              end
+            else
+              begin
+                counter              <= 0;
+                data_byte[bit_index] <= rx;
+
+                // Check if we have received all bits
+                if (bit_index < 7)
+                  begin
+                    bit_index <= bit_index + 3'd1;
+                  end
+                else
+                  begin
+                    state     <= STOP_STATE;
+                  end
+              end
+          end
+
+        // Wait until this middle of the Stop bit.
+        STOP_STATE :
+          begin
+            if (counter < CLKS_PER_BIT-1)
+              begin
+                counter <= counter + 16'b1;
+              end
+            else
+              begin
+                data_avail <= 1;    // Signal that we have a complete byte.
+                state      <= IDLE_STATE;
+              end
+          end
+
+        default:
+          state <= IDLE_STATE;
+
+      endcase
+    end
+
+endmodule  //  UART_RX
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// This module is the UART Transmitter.  This transmitter is able
+// to transmit 8 bits of serial data, one start bit, one stop bit,
+// and no parity bit.  When transmit is complete o_done will be
+// driven high for one clock cycle.
+//
+module UART_TX (
+    input       clock,
+    input       i_data_avail,     // If HIGH, start transmission
+    input [7:0] i_data_byte,      // Latched when i_data_avail is HIGH
+    output reg  o_active,         // HIGH while busy transmitting
+    output reg  o_tx,             // Connect this to the Tx line
+    output reg  o_done            // HIGH for one clock when complete
+  );
+
+  localparam CLKS_PER_BIT = CYCLES_PER_SECOND / UART_BAUD_RATE;
+
+  localparam IDLE_STATE     = 2'b00;
+  localparam START_STATE    = 2'b01;
+  localparam SEND_BIT_STATE = 2'b10;
+  localparam STOP_STATE     = 2'b11;
+
+  reg [1:0]  state          = 0;
+  reg [$clog2(CLKS_PER_BIT)-1:0] counter = 0;
+  reg [2:0]  bit_index      = 0;
+  reg [7:0]  data_byte      = 0;
+
+  always_ff @(posedge clock)
+    begin
+
+      case (state)
+      
+        IDLE_STATE :
+          begin
+            o_tx      <= 1;
+            o_done    <= 0;
+            counter   <= 0;
+            bit_index <= 0;
+
+            if (i_data_avail == 1)
+              begin
+                o_active  <= 1;
+                data_byte <= i_data_byte;
+                state     <= START_STATE;
+              end
+            else
+              begin
+                o_active  <= 0;
+              end
+          end
+
+        // Send Start Bit
+        START_STATE :
+          begin
+            o_tx <= 0;
+            // Wait CLKS_PER_BIT-1 clock cycles for start bit to finish
+            if (counter < CLKS_PER_BIT-1)
+              begin
+                counter <= counter + 16'd1;
+              end
+            else
+              begin
+                counter <= 0;
+                state   <= SEND_BIT_STATE;
+              end
+          end
+
+        // Wait CLKS_PER_BIT-1 clock cycles for each data bit to finish
+        SEND_BIT_STATE :
+          begin
+            o_tx <= data_byte[bit_index];
+            if (counter < CLKS_PER_BIT-1)
+              begin
+                counter <= counter + 16'b1;
+              end
+            else
+              begin
+                counter <= 0;
+                // Check if we have sent out all bits
+                if (bit_index < 7)
+                  begin
+                    bit_index <= bit_index + 3'd1;
+                  end
+                else
+                  begin
+                    state     <= STOP_STATE;
+                  end
+              end
+          end
+
+        // Send Stop bit
+        STOP_STATE :
+          begin
+            o_tx <= 1;
+            // Wait CLKS_PER_BIT-1 clock cycles for Stop bit to finish
+            if (counter < CLKS_PER_BIT-1)
+              begin
+                counter <= counter + 16'b1;
+              end
+            else
+              begin
+                o_done   <= 1;    // Raise o_done for final clock cycle
+                o_active <= 0;
+                state    <= IDLE_STATE;
+              end
+          end
+
+        default :
+          state <= IDLE_STATE;
+
+      endcase
+    end
+
+endmodule  //  UART_TX
+
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//
+// This is the top-level module which interfaces to the FPGA pins.
+// It contains the following modules:
+//     CORE             -- The EveCore
+//     DEBOUNCE_FILTER  -- To debounce the single-step button
+//     OUTPUT_CONTROL   -- To drive the 7 segment LEDs
+//     UART_RX          -- UART serial comm
+//     UART_TX          -- UART serial comm
+//
+module TOP_LEVEL (
+    input  i_Clk,        // system clock
+    input  i_Switch_1,   // push button switches
+    input  i_Switch_2,
+    input  i_Switch_3,
+    input  i_Switch_4,
+    output o_LED_1,      // LEDs
+    output o_LED_2,
+    output o_LED_3,
+    output o_LED_4,
+    output o_seg1_a,     // 7-segment LED display
+    output o_seg1_b,
+    output o_seg1_c,
+    output o_seg1_d,
+    output o_seg1_e,
+    output o_seg1_f,
+    output o_seg1_g,
+    output o_seg2_a,
+    output o_seg2_b,
+    output o_seg2_c,
+    output o_seg2_d,
+    output o_seg2_e,
+    output o_seg2_f,
+    output o_seg2_g,
+    output o_UART_Tx,    // UART transmit
+    input  i_UART_Rx     // UART receive
+  );
+
+  wire [6:0]  HEX_digit_1;
+  wire [6:0]  HEX_digit_2;
+  logic [3:0] LED_out;
+
+  // Signals from core to drive the debugging display:
+  wire [7:0]  debug_pc_out;
+  wire [7:0]  debug_inst_out;
+  wire [2:0]  debug_state_out;
+  wire [2:0]  debug_next_state_out;
+  wire [7:0]  debug_misc_out_1;
+  wire [7:0]  debug_misc_out_2;
+
+  // Signals to/from OUT instruction to write an I/O register:
+  wire [7:0]   OUT_reg_num;
+  wire [7:0]   OUT_reg_data;
+  wire         OUT_wr_en;
+  logic        OUT_wait;
+  
+  // Signals to/from IN instruction to read an I/O register:
+  wire  [7:0]  IN_reg_num;
+  wire         IN_read;
+  logic [7:0]  IN_reg_data;
+  logic        IN_ready;
+
+  wire        single_step_debounced;
+ 
+  DEBOUNCE_FILTER #(.DEBOUNCE_LIMIT(DEBOUNCE_DELAY)) MyDebouncer
+    ( .i_Clk        (i_Clk),
+      .i_Bouncy     (i_Switch_4),
+      .o_Debounced  (single_step_debounced) );
+
+  CORE myCore
+    ( .clock                (i_Clk),
+      .single_step_button   (single_step_debounced),
+      .reset                (i_Switch_1 & i_Switch_2),
+      .debug_pc_out         (debug_pc_out),
+      .debug_inst_out       (debug_inst_out),
+      .debug_state_out      (debug_state_out),
+      .debug_next_state_out (debug_next_state_out),
+      .debug_misc_out_1     (debug_misc_out_1),
+      .debug_misc_out_2     (debug_misc_out_2),
+  
+      .o_OUT_reg_num        (OUT_reg_num),
+      .o_OUT_reg_data       (OUT_reg_data),
+      .o_OUT_wr_en          (OUT_wr_en),
+      .i_OUT_wait           (OUT_wait),
+  
+      .o_IN_reg_num         (IN_reg_num),
+      .o_IN_read            (IN_read),
+      .i_IN_reg_data        (IN_reg_data),
+      .i_IN_ready           (IN_ready) );
+ 
+  // Use current "state" to drive LEDs.
+  always_comb begin
+    case (debug_state_out)
+      START_STATE:   LED_out = 4'b0000;
+      FETCH_STATE:   LED_out = 4'b1000;
+      EXEC_STATE:    LED_out = 4'b0100;
+      EXEC_STATE_2:  LED_out = 4'b0010;
+      EXEC_STATE_3:  LED_out = 4'b0001;
+      EXEC_STATE_4:  LED_out = 4'b0011;
+      default:       LED_out = 4'b1111;
+    endcase
+  end
+  assign { o_LED_1, o_LED_2, o_LED_3, o_LED_4} = LED_out;
+
+  // Use "debug" signals from core and buttons to drive 7-segment LEDS.
+  OUTPUT_CONTROL My_Output_Control                      // Display when...
+    ( .data_0        ( debug_inst_out ),                //   no buttons pressed
+      .data_1        ( debug_misc_out_1 ),              //   sw_1 pressed
+      .data_2        ( debug_pc_out  ),                 //   sw_2 pressed
+      .data_3        ( debug_misc_out_2 ),              //   sw_3 pressed
+      .data_4        ( debug_inst_out ),                //   sw_4 pressed
+      .data_5        ( {1'b0 , debug_state_out, 1'b0 , debug_next_state_out} ),  //   top two buttons
+      .data_6        ( 8'h37 ),                         //   bottom two buttons
+      .data_7        ( 8'h48  ),                        //   sw_2 & sw_3 pressed
+      .switch_1      (i_Switch_1),
+      .switch_2      (i_Switch_2),
+      .switch_3      (i_Switch_3),
+      .switch_4      (i_Switch_4),
+      .HEX_digit_1   (HEX_digit_1),
+      .HEX_digit_2   (HEX_digit_2) );
+  assign { o_seg1_g, o_seg1_f, o_seg1_e,
+           o_seg1_d, o_seg1_c, o_seg1_b, o_seg1_a } = HEX_digit_1;
+  assign { o_seg2_g, o_seg2_f, o_seg2_e,
+           o_seg2_d, o_seg2_c, o_seg2_b, o_seg2_a } = HEX_digit_2;
+
+
+  /**********************  UART TESTING  **********************
+  //
+  // Uncomment this material to test just the UART stuff.
+  //
+  wire [7:0] data8;
+  wire [7:0] data_plus_one;
+  wire       data8_avail;
+
+  UART_RX My_uart_rx
+      (.clock        (i_Clk),
+       .i_rx         (i_UART_Rx),
+       .o_data_avail (data8_avail),
+       .o_data_byte  (data8)
+      );
+     
+  // To avoid confusion with potential echoing by the terminal software,  
+  // mutate the char. For example, type 'a' and 'b' will be echoed.
+  assign data_plus_one = data8 + 8'b0000_0001;
+  
+  UART_TX My_uart_tx
+      (.clock        (i_Clk),
+       .i_data_avail (data8_avail),   // Receipt of char causes transmit to begin
+       .i_data_byte  (data_plus_one),
+       .o_active     (),
+       .o_tx         (o_UART_Tx),
+       .o_done       ()
+      );
+  **************************************************************/
+
+
+  /**********************  UART SERIAL COMM  **********************/
+  
+  // Signals from UART_RX:
+  wire          UART_RX_avail;
+  wire    [7:0] UART_RX_data;
+  // Signals to UART_TX:
+  logic         UART_TX_avail;
+  logic   [7:0] UART_TX_data;
+  // Signals from UART_TX:
+  wire          UART_TX_active;
+
+  UART_RX My_uart_rx
+      (.clock        (i_Clk),
+       .i_rx         (i_UART_Rx),
+       .o_data_avail (UART_RX_avail),
+       .o_data_byte  (UART_RX_data)
+      );
+
+  UART_TX My_uart_tx
+    (.clock        (i_Clk),
+     .i_data_avail (UART_TX_avail),
+     .i_data_byte  (UART_TX_data),
+     .o_active     (UART_TX_active),
+     .o_tx         (o_UART_Tx),
+     .o_done       ()
+   );
+
+  // Whenever a character is received, it will be stored in "char_reg" and
+  // "char_avail" will be raised. This will remain high until someone
+  // consumes the character. Whenever someone consumes the character,
+  // they should raise "got_char" for a cycle.
+  //
+  reg [7:0] char_reg;    // Input char
+  reg       char_avail;  // High when char_reg contains new data
+  logic     got_char;    // Drive this high one cycle to clear char_avail
+  
+  always_ff @(posedge i_Clk) begin
+    if (UART_RX_avail)
+      begin
+        char_reg <= UART_RX_data;
+        char_avail <= 1;
+      end
+    else if (got_char)
+      char_avail <= 0;
+  end
+
+
+  // **********************  I/O System  **********************
+  //
+  // These signals interface between the CORE and the OUT registers:
+  //
+  //  wire [7:0]   OUT_reg_num;    // From core - Register number
+  //  wire [7:0]   OUT_reg_data;   //           - Value to peripheral
+  //  wire         OUT_wr_en;      //           - Pulsed once to write to I/O
+  //  logic        OUT_wait;       // To core - Drive this high to freeze the core
+  //
+  // To perform output with the OUT instruction, the core will raise OUT_wr_en for one cycle,
+  // During this cycle, the core will also make OUT_reg_num and OUT_reg_data valid.
+  // The output device must accept this data at this time. Then, the output device
+  // may suspend the core's execution if it needs extra time, e.g., so that it can
+  // be ready to accept a similar output operation on the next instruction.
+  // To suspend the core, the output device will drive OUT_wait high (on the cycle
+  // following the OUT_wr_en cycle) and hold it high for as many cycles as needed.
+  // If no extra cycles are needed, the output device will keep OUT_wait low.
+  // Note that any output device may ask for waiting, so OUT_wait is the logical OR
+  // of the "please wait" signals from all output devices.
+  // 
+  // These signals interface between the CORE and the IN registers:
+  //
+  //  wire  [7:0]  IN_reg_num;     // From core - Register number
+  //  wire         IN_read;        //           - Driven high to read from I/O register
+  //  logic [7:0]  IN_reg_data;    // To core - Value from peripheral
+  //  logic        IN_ready;       //         - Drive this high when data is available
+  //
+  // To perform input with the IN instruction, the core will raise IN_read and make
+  // IN_reg_num valid. It will keep IN_read high and IN_reg_num valid until the device
+  // has responded. The device will provide a reply by raising IN_ready and making
+  // IN_reg_data valid for one cycle. The device may do this as soon as the cycle
+  // following the cycle where IN_read was derived high, or it may take as long as it wishes.
+  // Note that with multiple input devices, the IN_reg_data and IN_ready lines must be
+  // multiplexed.
+  //
+  always_comb begin
+    UART_TX_avail = 0;
+    UART_TX_data = 0;
+  
+    OUT_wait = UART_TX_active;
+    IN_reg_data = 0;
+    IN_ready = 0;
+    got_char = 0;
+
+    // If there is a write to reg 0, then start the UART transmitting it.
+    if (OUT_wr_en & (OUT_reg_num == 8'h00))
+      begin
+        UART_TX_avail = 1;
+        UART_TX_data = OUT_reg_data;
+      end
+
+    // If there is a read from reg 0 AND a character was received earlier,
+    // then return that character. Otherwise, IN_ready remains low.
+    if (IN_read & (IN_reg_num == 8'h00) & char_avail)
+      begin
+        IN_reg_data = char_reg;
+        IN_ready = 1;
+        got_char = 1;
+      end
+  end  
+
+endmodule  //  TOP_LEVEL
