@@ -1,0 +1,12 @@
+Estructura en Verilog para un controlador sencillo de SPI Flash, inspirado en el ejemplo de UART que compartiste. 
+Este ejemplo implementa una secuencia típica para leer un byte desde la memoria flash, usando un FSM con estados como:
+
+IDLE: Espera la señal de inicio
+
+SEND_CMD: Envía el código de operación (por ejemplo, 8'h03 para lectura)
+
+SEND_ADDR: Envía la dirección de 24 bits (dividida en 3 bytes)
+
+READ_DATA: Lee 8 bits de datos (esto puede extenderse para múltiples bytes)
+
+STOP: Termina la transacción y desactiva el chip select
