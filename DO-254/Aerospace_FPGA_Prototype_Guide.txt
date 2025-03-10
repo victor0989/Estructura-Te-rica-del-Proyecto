@@ -1,0 +1,81 @@
+------------------------------------------------------------
+Guía de Prototipado FPGA Aeroespacial y Certificación DO-254
+------------------------------------------------------------
+
+1. Introducción
+----------------
+Esta guía presenta recomendaciones para integrar FPGAs (como la Kintex) en aplicaciones aeroespaciales, 
+enfocándose en el encapsulado/aislamiento mediante recubrimientos y resinas, y la integración de Ethernet 
+para la transmisión de datos de sensores (presión, temperatura, control de aceite, etc.). Se discute cómo 
+estos enfoques pueden alinearse con los estrictos requisitos de la certificación DO-254.
+
+2. Recubrimientos (Conformal Coatings)
+----------------------------------------
+a. Parylene C
+   - Características: Recubrimiento depositado por vapor, ofrece una capa ultrafina y muy uniforme.
+   - Ventajas: Excelente barrera contra humedad, polvo y químicos; alta resistencia en condiciones extremas.
+   - Relevancia DO-254: Favorece la confiabilidad del hardware, factor clave para cumplir con las pruebas 
+     ambientales y de integridad exigidas.
+
+b. Recubrimientos de Silicone
+   - Características: Flexible y resistente a vibraciones y cambios térmicos.
+   - Ventajas: Proporciona protección adecuada en entornos con variaciones de temperatura y vibración.
+   - Consideraciones: Debe evaluarse su comportamiento frente a la radiación y otros estreses aeroespaciales.
+
+c. Recubrimientos Acrílicos
+   - Características: Fácil aplicación, protección básica contra humedad y polvo.
+   - Ventajas: Menor costo y rápida implementación.
+   - Consideraciones: Su rendimiento en condiciones extremas es inferior al de Parylene C.
+
+d. Recubrimientos de Uretano
+   - Características: Buena resistencia química y mecánica.
+   - Ventajas: Adecuado para entornos moderados a exigentes.
+   - Consideraciones: Se debe analizar su idoneidad específica según las condiciones del entorno aeronáutico.
+
+3. Resinas Epóxicas (Potting Compounds)
+----------------------------------------
+a. Epoxis de Grado Aeroespacial
+   - Características: Diseñadas para soportar vibraciones, impactos y cambios térmicos extremos.
+   - Ventajas: Alta integridad mecánica, estabilidad térmica y resistencia a agentes químicos.
+   - Relevancia DO-254: Es fundamental que las resinas cumplan con pruebas ambientales rigurosas y se 
+     documenten correctamente para la certificación.
+
+b. Otras Resinas Especializadas
+   - Evaluar opciones que ofrezcan control preciso del curado, compatibilidad con componentes y buen 
+     aislamiento eléctrico, siempre considerando la exigencia de entornos aeroespaciales.
+
+4. Comparación y Conformidad con DO-254
+----------------------------------------
+- DO-254 requiere documentación completa, validación, verificación y un riguroso control de configuración.
+- Los materiales de encapsulado (recubrimientos y resinas) deben pasar pruebas ambientales: vibración, 
+  temperatura, humedad y resistencia química.
+- Parylene C y las epoxis de grado aeroespacial destacan por su desempeño en condiciones extremas, 
+  contribuyendo a la integridad y confiabilidad que DO-254 demanda.
+
+5. Importancia de Ethernet en Prototipos y Submódulos
+------------------------------------------------------
+- Ethernet ofrece alta confiabilidad, baja latencia y robustez en la transmisión de datos, esenciales para 
+  aplicaciones críticas (sensores de presión, temperatura, etc.).
+- Su uso en prototipos implementados en Verilog permite validar submódulos con estándares de comunicación 
+  deterministas y controlados.
+
+6. Aislamiento del Cableado Ethernet en Entornos Aeroespaciales
+--------------------------------------------------------------
+- Utilizar cables de par trenzado blindados de grado aeroespacial.
+- Canalización en conduits metálicos o bandejas certificadas para minimizar interferencias y proteger contra 
+  condiciones ambientales adversas.
+- Aislamiento físico: Separar el cableado de áreas de alta temperatura o riesgo (por ejemplo, cerca de sistemas 
+  de potencia o fuentes de alta energía).
+- Implementar barreras de aislamiento electromagnético para cumplir con las normativas y mantener la integridad 
+  del sistema según DO-254.
+
+7. Conclusión
+-------------
+La integración de recubrimientos y resinas de alta calidad junto con el uso de Ethernet para la transmisión 
+de datos es viable y fundamental para cumplir con los exigentes requisitos de DO-254 en aplicaciones aeroespaciales. 
+Se recomienda realizar pruebas ambientales exhaustivas y documentar todo el proceso para garantizar la 
+confiabilidad y certificación del sistema.
+
+------------------------------------------------------------
+Fin de la Guía
+------------------------------------------------------------
